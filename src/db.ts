@@ -1,4 +1,5 @@
-import { collection, doc, setDoc, getDoc, CollectionReference, DocumentData } from 'firebase/firestore';
+import { collection, doc, setDoc, getDoc } from 'firebase/firestore';
+import type { CollectionReference, DocumentData } from 'firebase/firestore';
 import { db as firestoreDb } from './firebase';
 
 export type AccountType = 'bank' | 'ewallet' | 'cash';
