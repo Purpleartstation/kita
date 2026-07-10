@@ -16,7 +16,7 @@ type EditableField = 'name' | 'amount' | 'dueDay' | null;
 
 export default function BillDetailsSheet({ billId, isOpen, onClose }: BillDetailsSheetProps) {
   const currentHouseholdId = useAppStore((state) => state.currentHouseholdId);
-  const [isRecurring, setIsRecurring] = useState(false);
+
   const [editingField, setEditingField] = useState<EditableField>(null);
   const [isEditing, setIsEditing] = useState(false);
 
@@ -52,7 +52,6 @@ export default function BillDetailsSheet({ billId, isOpen, onClose }: BillDetail
   // Initialize values
   useEffect(() => {
     if (bill) {
-      setIsRecurring(!!bill.recurringRuleId);
       setTempName(bill.name);
       setTempAmount(bill.amount.toString());
       setPaymentAccountId(bill.accountId);

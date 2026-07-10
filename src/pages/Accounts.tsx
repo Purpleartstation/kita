@@ -25,7 +25,7 @@ export default function Accounts() {
 
   const totalBalance = accounts?.reduce((sum, acc) => sum + acc.balance, 0) || 0;
 
-  const getIcon = (type: string, color: string) => {
+  const getIcon = (type: string, _color: string) => {
     const props = { size: 24, className: "text-white" };
     switch (type) {
       case 'bank': return <Landmark {...props} />;

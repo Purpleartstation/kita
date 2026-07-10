@@ -13,7 +13,7 @@ interface TransactionDetailsSheetProps {
 export default function TransactionDetailsSheet({ transactionId, isOpen, onClose }: TransactionDetailsSheetProps) {
   // Fetch transaction
   const transaction = useLiveQuery(
-    () => (transactionId ? db.transactions.get(transactionId) : null),
+    () => (transactionId ? db.transactions.get(transactionId) : undefined),
     [transactionId]
   );
 

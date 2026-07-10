@@ -1,11 +1,10 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
-import { useAppStore } from '../store';
+
 
 export default function Insights() {
-  const currentHouseholdId = useAppStore((state) => state.currentHouseholdId);
-  
+
   // Aggregate expenses by category
   const expenses = useLiveQuery(async () => {
     const txs = await db.transactions.where('type').equals('expense').toArray();
@@ -58,7 +57,7 @@ export default function Insights() {
                   ))}
                 </Pie>
                 <Tooltip 
-                  formatter={(value: number) => [`₱ ${value.toLocaleString()}`, 'Amount']}
+                  formatter={(value: number) => [`₱ ${value.toLocaleString()}`, 'Amount'] as [string, string]}
                   contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                 />
                 <Legend verticalAlign="bottom" height={36} iconType="circle" />

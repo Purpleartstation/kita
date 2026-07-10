@@ -44,7 +44,6 @@ export default function Home() {
   const getAccount = (id: string) => accounts?.find(a => a.id === id);
 
   const totalBalance = accounts?.reduce((sum, acc) => sum + acc.balance, 0) || 0;
-  const totalIncome = accounts?.reduce((sum, acc) => sum + Math.max(acc.balance, 0), 0) || 0;
 
   return (
     <div className="space-y-6 pb-4">

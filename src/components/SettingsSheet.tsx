@@ -3,7 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import { useAppStore } from '../store';
 import BottomSheet from './BottomSheet';
-import { User, Shield, Users, RefreshCw, CheckCircle2, UserPlus, AlertCircle } from 'lucide-react';
+import { User, Users, RefreshCw, CheckCircle2, UserPlus, AlertCircle } from 'lucide-react';
 
 interface SettingsSheetProps {
   isOpen: boolean;
