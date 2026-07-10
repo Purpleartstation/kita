@@ -13,9 +13,8 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>((set) => ({
-  // Seeded mock user and household IDs
-  currentUserId: 'u1',
-  currentHouseholdId: 'h1',
+  currentUserId: '',
+  currentHouseholdId: '',
   viewMode: 'mine',
   isAddMenuOpen: false,
   

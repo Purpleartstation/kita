@@ -15,6 +15,7 @@ export interface User {
   pin?: string;
   email?: string;
   password?: string;
+  householdId?: string;
 }
 
 export interface Household {
@@ -124,156 +125,89 @@ export const collections = {
   notifications: createCollection<NotificationMsg>('notifications'),
 };
 
-export async function seedMockData() {
-  // Check if users collection has data by attempting to fetch a known mock user
-  const u1Ref = doc(db, 'users', 'u1');
-  const u1Snap = await getDoc(u1Ref);
-  if (u1Snap.exists()) return; // already seeded
-
-  const now = Date.now();
-  const userId = 'u1';
-  const householdId = 'h1';
-
-  await setDoc(doc(db, 'users', 'u1'), {
-    id: 'u1',
-    name: 'Juan Dela Cruz',
-    email: 'juan@example.com',
-    password: 'password123',
-    hasPin: true,
-    pin: '1234'
-  });
+// Create or update a user profile from Google Auth
+export async function ensureUserProfile(firebaseUser: { uid: string; displayName: string | null; email: string | null; photoURL: string | null }): Promise<User> {
+  const userRef = doc(db, 'users', firebaseUser.uid);
+  const userSnap = await getDoc(userRef);
   
-  await setDoc(doc(db, 'users', 'u2'), {
-    id: 'u2',
-    name: 'Maria Dela Cruz',
-    email: 'maria@example.com',
-    password: 'password123',
-    hasPin: true,
-    pin: '5678'
-  });
-
-  await setDoc(doc(db, 'households', householdId), {
-    id: householdId,
-    name: 'Dela Cruz Family',
-    type: 'partner',
-    memberIds: ['u1', 'u2'] 
-  });
-
-  const account1 = 'acc_gcash';
-  const account2 = 'acc_bpi';
-  const account3 = 'acc_cash';
-
-  await setDoc(doc(db, 'accounts', account1), {
-    id: account1,
-    householdId,
-    ownerId: userId,
-    name: 'GCash',
-    type: 'ewallet',
-    institution: 'GCash',
-    balance: 8230,
-    color: '#0052FF',
-    icon: 'smartphone'
-  });
+  if (userSnap.exists()) {
+    // User exists, return their data
+    return userSnap.data() as User;
+  }
   
-  await setDoc(doc(db, 'accounts', account2), {
-    id: account2,
-    householdId,
-    ownerId: userId,
-    name: 'BPI Savings',
-    type: 'bank',
-    institution: 'BPI',
-    balance: 45000,
-    color: '#B22222',
-    icon: 'landmark'
-  });
-  
-  await setDoc(doc(db, 'accounts', account3), {
-    id: account3,
-    householdId,
-    ownerId: null,
-    name: 'Cash on Hand',
-    type: 'cash',
-    institution: 'Cash',
-    balance: 1500,
-    color: '#228B22',
-    icon: 'wallet'
-  });
-
-  const catFoodId = 'cat_food';
-  const catSalaryId = 'cat_salary';
-  const catTranspoId = 'cat_transpo';
-  const catBillsId = 'cat_bills';
-  const catTransferId = 'cat_transfer';
-
-  await setDoc(doc(db, 'categories', catFoodId), { id: catFoodId, name: 'Food', icon: 'utensils', type: 'expense', color: '#F59E0B' });
-  await setDoc(doc(db, 'categories', catTranspoId), { id: catTranspoId, name: 'Transport', icon: 'bus', type: 'expense', color: '#3B82F6' });
-  await setDoc(doc(db, 'categories', catBillsId), { id: catBillsId, name: 'Bills', icon: 'receipt', type: 'expense', color: '#EF4444' });
-  await setDoc(doc(db, 'categories', catSalaryId), { id: catSalaryId, name: 'Salary', icon: 'briefcase', type: 'income', color: '#10B981' });
-  await setDoc(doc(db, 'categories', catTransferId), { id: catTransferId, name: 'Transfer', icon: 'arrow-right-left', type: 'transfer', color: '#818CF8' });
-
-  await setDoc(doc(db, 'transactions', 'tx_1'), {
-    id: 'tx_1',
-    accountId: account2,
-    categoryId: catSalaryId,
-    amount: 25000,
-    type: 'income',
-    note: 'Quincena Salary',
-    date: now - 5 * 86400000 
-  });
-  
-  await setDoc(doc(db, 'transactions', 'tx_2'), {
-    id: 'tx_2',
-    accountId: account1,
-    categoryId: catFoodId,
-    amount: 350,
-    type: 'expense',
-    note: 'Groceries',
-    date: now - 2 * 86400000
-  });
-  
-  await setDoc(doc(db, 'transactions', 'tx_3'), {
-    id: 'tx_3',
-    accountId: account3,
-    categoryId: catTranspoId,
-    amount: 50,
-    type: 'expense',
-    note: 'Jeepney',
-    date: now - 86400000
-  });
-
-  await setDoc(doc(db, 'bills', 'bill_meralco'), {
-    id: 'bill_meralco',
-    name: 'Meralco',
-    accountId: account1,
-    amount: 1800,
-    dueDay: new Date().getDate() + 3 > 30 ? 5 : new Date().getDate() + 3,
-    status: 'upcoming'
-  });
-
-  await setDoc(doc(db, 'debts', 'debt_gcredit'), {
-    id: 'debt_gcredit',
-    name: 'GCredit',
-    lender: 'GCash',
-    originalAmount: 5000,
-    remainingBalance: 2500,
-    interestRate: 5,
-    installmentAmount: 500,
-    dueDay: 15,
-    payoffStrategy: 'snowball'
-  });
+  // New user — create profile
+  const newUser: User = {
+    id: firebaseUser.uid,
+    name: firebaseUser.displayName || 'User',
+    email: firebaseUser.email || '',
+    avatar: firebaseUser.photoURL || '',
+    hasPin: false,
+  };
+  await setDoc(userRef, newUser);
+  return newUser;
 }
 
-// Ensures the system Transfer category always exists
-export async function ensureTransferCategory() {
-  const ref = doc(db, 'categories', 'cat_transfer');
-  const snap = await getDoc(ref);
-  if (!snap.exists()) {
-    await setDoc(ref, {
-      id: 'cat_transfer',
-      name: 'Transfer',
-      icon: 'arrow-right-left',
-      type: 'transfer',
-      color: '#818CF8'
-    });
+// Create a new household and assign the user to it
+export async function createHousehold(userId: string, householdName: string): Promise<string> {
+  const householdId = 'h_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
+  
+  await setDoc(doc(db, 'households', householdId), {
+    id: householdId,
+    name: householdName,
+    type: 'partner',
+    memberIds: [userId],
+  });
+  
+  // Update user with householdId
+  await setDoc(doc(db, 'users', userId), { householdId }, { merge: true });
+  
+  // Seed default categories for this household
+  await ensureDefaultCategories();
+  
+  return householdId;
+}
+
+// Join an existing household by its ID
+export async function joinHousehold(userId: string, householdId: string): Promise<boolean> {
+  const householdRef = doc(db, 'households', householdId);
+  const householdSnap = await getDoc(householdRef);
+  
+  if (!householdSnap.exists()) {
+    return false; // Household not found
+  }
+  
+  const household = householdSnap.data() as Household;
+  
+  // Add user to household members if not already there
+  if (!household.memberIds.includes(userId)) {
+    household.memberIds.push(userId);
+    await setDoc(householdRef, { memberIds: household.memberIds }, { merge: true });
+  }
+  
+  // Update user with householdId
+  await setDoc(doc(db, 'users', userId), { householdId }, { merge: true });
+  
+  return true;
+}
+
+// Seed default expense/income categories
+export async function ensureDefaultCategories() {
+  const cats = [
+    { id: 'cat_food', name: 'Food', icon: 'utensils', type: 'expense', color: '#F59E0B' },
+    { id: 'cat_transpo', name: 'Transport', icon: 'bus', type: 'expense', color: '#3B82F6' },
+    { id: 'cat_bills', name: 'Bills', icon: 'receipt', type: 'expense', color: '#EF4444' },
+    { id: 'cat_salary', name: 'Salary', icon: 'briefcase', type: 'income', color: '#10B981' },
+    { id: 'cat_transfer', name: 'Transfer', icon: 'arrow-right-left', type: 'transfer', color: '#818CF8' },
+    { id: 'cat_shopping', name: 'Shopping', icon: 'shopping-bag', type: 'expense', color: '#EC4899' },
+    { id: 'cat_entertainment', name: 'Entertainment', icon: 'film', type: 'expense', color: '#8B5CF6' },
+    { id: 'cat_health', name: 'Health', icon: 'heart', type: 'expense', color: '#EF4444' },
+  ];
+  
+  for (const cat of cats) {
+    const ref = doc(db, 'categories', cat.id);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) {
+      await setDoc(ref, cat);
+    }
   }
 }
