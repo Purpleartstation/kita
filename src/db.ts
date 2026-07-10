@@ -1,4 +1,4 @@
-import { collection, doc, setDoc, getDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, getDoc, CollectionReference, DocumentData } from 'firebase/firestore';
 import { db as firestoreDb } from './firebase';
 
 export type AccountType = 'bank' | 'ewallet' | 'cash';
@@ -106,17 +106,21 @@ export interface NotificationMsg {
 // Export Firestore instance as db to minimize import changes
 export const db = firestoreDb;
 
-// Collection helpers
+const createCollection = <T = DocumentData>(path: string) => {
+  return collection(db, path) as CollectionReference<T>;
+};
+
+// Collection helpers with typed refs
 export const collections = {
-  users: collection(db, 'users'),
-  households: collection(db, 'households'),
-  accounts: collection(db, 'accounts'),
-  categories: collection(db, 'categories'),
-  transactions: collection(db, 'transactions'),
-  recurringRules: collection(db, 'recurringRules'),
-  bills: collection(db, 'bills'),
-  debts: collection(db, 'debts'),
-  notifications: collection(db, 'notifications'),
+  users: createCollection<User>('users'),
+  households: createCollection<Household>('households'),
+  accounts: createCollection<Account>('accounts'),
+  categories: createCollection<Category>('categories'),
+  transactions: createCollection<Transaction>('transactions'),
+  recurringRules: createCollection<RecurringRule>('recurringRules'),
+  bills: createCollection<Bill>('bills'),
+  debts: createCollection<Debt>('debts'),
+  notifications: createCollection<NotificationMsg>('notifications'),
 };
 
 export async function seedMockData() {
