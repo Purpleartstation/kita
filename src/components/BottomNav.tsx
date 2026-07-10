@@ -17,7 +17,7 @@ export default function BottomNav() {
   return (
     <div className="fixed bottom-safe-bottom left-4 right-4 z-40 mb-4">
       <nav className="flex justify-around items-center h-[72px] px-2 bg-zinc-900/80 backdrop-blur-2xl border border-zinc-800/50 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.4)]">
-        {navItems.map((item, idx) => {
+        {navItems.map((item) => {
           if (item.isFab) {
             return (
               <div key="fab" className="flex flex-col items-center justify-center w-16 relative">

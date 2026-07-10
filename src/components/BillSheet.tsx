@@ -7,6 +7,11 @@ import { X, RefreshCw, CalendarDays } from 'lucide-react';
 import { MonthlyDayPicker, SpecificDatePicker, getOrdinal } from './CalendarPickers';
 
 // ─── Main BillSheet ───────────────────────────────────────────────────────────
+interface BillSheetProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
 export default function BillSheet({ isOpen, onClose }: BillSheetProps) {
   const currentHouseholdId = useAppStore((state) => state.currentHouseholdId);
 

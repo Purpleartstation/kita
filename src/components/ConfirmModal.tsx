@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AlertTriangle, CheckCircle, Info, X } from 'lucide-react';
 

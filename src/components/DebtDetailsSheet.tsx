@@ -3,7 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import { useAppStore } from '../store';
 import BottomSheet from './BottomSheet';
-import { Trash2, TrendingDown, ShieldAlert, Award } from 'lucide-react';
+import { Trash2, TrendingDown, Award } from 'lucide-react';
 
 interface DebtDetailsSheetProps {
   debtId: string | null;
@@ -17,7 +17,7 @@ export default function DebtDetailsSheet({ debtId, isOpen, onClose }: DebtDetail
   const [selectedAccountId, setSelectedAccountId] = useState('');
 
   const debt = useLiveQuery(
-    () => (debtId ? db.debts.get(debtId) : null),
+    () => (debtId ? db.debts.get(debtId) : undefined),
     [debtId]
   );
 

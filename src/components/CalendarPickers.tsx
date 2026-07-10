@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronLeft, ChevronRight, RefreshCw, CalendarDays } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 export const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',

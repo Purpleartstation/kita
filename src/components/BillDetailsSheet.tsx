@@ -43,11 +43,6 @@ export default function BillDetailsSheet({ billId, isOpen, onClose }: BillDetail
     [billId]
   );
 
-  // Fetch the recurring rule if this bill has one
-  const recurringRule = useLiveQuery(
-    () => (bill?.recurringRuleId ? db.recurringRules.get(bill.recurringRuleId) : undefined),
-    [bill]
-  );
 
   const accounts = useLiveQuery(
     () => db.accounts.where('householdId').equals(currentHouseholdId).toArray(),
@@ -88,33 +83,6 @@ export default function BillDetailsSheet({ billId, isOpen, onClose }: BillDetail
     onClose();
   };
 
-  const handleToggleRecurring = async () => {
-    if (!billId || !bill) return;
-    
-    if (isRecurring) {
-      if (bill.recurringRuleId) {
-        await db.recurringRules.delete(bill.recurringRuleId);
-      }
-      await db.bills.update(billId, { recurringRuleId: undefined });
-      setIsRecurring(false);
-    } else {
-      const ruleId = `rule_${Date.now()}`;
-      await db.recurringRules.add({
-        id: ruleId,
-        accountId: bill.accountId,
-        type: 'expense',
-        categoryId: 'cat_bills',
-        amount: bill.amount,
-        frequency: 'monthly',
-        nextRunDate: Date.now() + 30 * 86400000,
-        variableAmountFlag: false,
-        note: `Recurring: ${bill.name}`,
-        endType: 'forever'
-      } as any);
-      await db.bills.update(billId, { recurringRuleId: ruleId });
-      setIsRecurring(true);
-    }
-  };
 
   const saveField = async (field: EditableField) => {
     if (!billId || !bill) return;
