@@ -5,15 +5,16 @@ import App from './App.tsx';
 import './index.css';
 import { seedMockData, ensureTransferCategory } from './db';
 
-// Initialize mock data before rendering
+// Seed mock data in the background (don't block rendering)
 seedMockData()
   .then(() => ensureTransferCategory())
-  .then(() => {
-    ReactDOM.createRoot(document.getElementById('root')!).render(
-      <React.StrictMode>
-        <BrowserRouter basename="/kita/">
-          <App />
-        </BrowserRouter>
-      </React.StrictMode>,
-    );
-  });
+  .catch((err) => console.warn('Mock data seeding skipped:', err));
+
+// Always render the app immediately
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <BrowserRouter basename="/kita/">
+      <App />
+    </BrowserRouter>
+  </React.StrictMode>,
+);
