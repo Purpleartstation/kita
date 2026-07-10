@@ -3,8 +3,8 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import { useAppStore } from '../store';
 import BottomSheet from './BottomSheet';
-import { Trash2, CreditCard, RefreshCw, Calendar, Edit2, ShieldAlert, CalendarDays, X } from 'lucide-react';
-import { MonthlyDayPicker, SpecificDatePicker, getOrdinal } from './CalendarPickers';
+import { Trash2, RefreshCw, Edit2, CalendarDays, X } from 'lucide-react';
+import { MonthlyDayPicker, SpecificDatePicker } from './CalendarPickers';
 
 interface BillDetailsSheetProps {
   billId: string | null;
@@ -23,7 +23,6 @@ export default function BillDetailsSheet({ billId, isOpen, onClose }: BillDetail
   // Temporary values for inline editing
   const [tempName, setTempName] = useState('');
   const [tempAmount, setTempAmount] = useState('');
-  const [tempDueDay, setTempDueDay] = useState('');
 
   // Selected Account for Payment State
   const [paymentAccountId, setPaymentAccountId] = useState('');
@@ -35,23 +34,18 @@ export default function BillDetailsSheet({ billId, isOpen, onClose }: BillDetail
   const [specificDates, setSpecificDates] = useState<number[]>([]);
   const [showSpecificCalendar, setShowSpecificCalendar] = useState(false);
 
-  // Recurring End Conditions State
-  const [endType, setEndType] = useState<'forever' | 'date' | 'count'>('forever');
-  const [endDate, setEndDate] = useState('');
-  const [endCount, setEndCount] = useState('12');
-
   // Refs for focusing inputs
   const nameInputRef = useRef<HTMLInputElement>(null);
   const amountInputRef = useRef<HTMLInputElement>(null);
 
   const bill = useLiveQuery(
-    () => (billId ? db.bills.get(billId) : null),
+    () => (billId ? db.bills.get(billId) : undefined),
     [billId]
   );
 
   // Fetch the recurring rule if this bill has one
   const recurringRule = useLiveQuery(
-    () => (bill?.recurringRuleId ? db.recurringRules.get(bill.recurringRuleId) : null),
+    () => (bill?.recurringRuleId ? db.recurringRules.get(bill.recurringRuleId) : undefined),
     [bill]
   );
 
@@ -66,7 +60,6 @@ export default function BillDetailsSheet({ billId, isOpen, onClose }: BillDetail
       setIsRecurring(!!bill.recurringRuleId);
       setTempName(bill.name);
       setTempAmount(bill.amount.toString());
-      setTempDueDay(bill.dueDay.toString());
       setPaymentAccountId(bill.accountId);
       
       // Load schedule fields
@@ -76,19 +69,6 @@ export default function BillDetailsSheet({ billId, isOpen, onClose }: BillDetail
     }
   }, [bill]);
 
-  // Load recurring rule settings
-  useEffect(() => {
-    if (recurringRule) {
-      const ruleData = recurringRule as any;
-      setEndType(ruleData.endType || 'forever');
-      if (ruleData.endDate) {
-        setEndDate(new Date(ruleData.endDate).toISOString().split('T')[0]);
-      }
-      if (ruleData.endCount) {
-        setEndCount(ruleData.endCount.toString());
-      }
-    }
-  }, [recurringRule]);
 
   // Focus input when editing starts
   useEffect(() => {
@@ -136,24 +116,6 @@ export default function BillDetailsSheet({ billId, isOpen, onClose }: BillDetail
     }
   };
 
-  const updateRecurringRuleSettings = async (type: 'forever' | 'date' | 'count', dateVal: string, countVal: string) => {
-    if (!bill?.recurringRuleId) return;
-
-    const updates: any = { endType: type };
-    if (type === 'date' && dateVal) {
-      updates.endDate = new Date(dateVal).getTime();
-      updates.endCount = undefined;
-    } else if (type === 'count' && countVal) {
-      updates.endCount = parseInt(countVal, 10);
-      updates.endDate = undefined;
-    } else {
-      updates.endDate = undefined;
-      updates.endCount = undefined;
-    }
-
-    await db.recurringRules.update(bill.recurringRuleId, updates);
-  };
-
   const saveField = async (field: EditableField) => {
     if (!billId || !bill) return;
 
@@ -187,7 +149,6 @@ export default function BillDetailsSheet({ billId, isOpen, onClose }: BillDetail
     if (!billId) return;
     setDueDay(day);
     await db.bills.update(billId, { dueDay: day });
-    setTempDueDay(day.toString());
     setEditingField(null);
     
     if (bill?.recurringRuleId) {
@@ -199,6 +160,7 @@ export default function BillDetailsSheet({ billId, isOpen, onClose }: BillDetail
       });
     }
   };
+
 
   const toggleSpecificDate = async (ts: number) => {
     if (!billId) return;

@@ -16,9 +16,10 @@ export default function AccountDetailsSheet({ accountId, isOpen, onClose }: Acco
   const [selectedTxId, setSelectedTxId] = useState<string | null>(null);
 
   const account = useLiveQuery(
-    () => (accountId ? db.accounts.get(accountId) : null),
+    () => (accountId ? db.accounts.get(accountId) : undefined),
     [accountId]
   );
+
 
   const transactions = useLiveQuery(
     () => (accountId ? db.transactions.where('accountId').equals(accountId).reverse().sortBy('date') : []),
