@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db';
+import { useCollectionData } from 'react-firebase-hooks/firestore';
+import { query, orderBy } from 'firebase/firestore';
+import { collections } from '../db';
+import type { Transaction, Category, Account } from '../db';
 import { formatDistanceToNow, isAfter, isBefore, subDays, startOfMonth, startOfYear, format } from 'date-fns';
 import { ArrowRightLeft } from 'lucide-react';
 import TransactionDetailsSheet from '../components/TransactionDetailsSheet';
@@ -20,9 +22,11 @@ export default function Tracker() {
   const [customTo, setCustomTo] = useState('');
   const [customDays, setCustomDays] = useState('');
 
-  const allTransactions = useLiveQuery(() => db.transactions.orderBy('date').reverse().toArray());
-  const categories = useLiveQuery(() => db.categories.toArray());
-  const accounts = useLiveQuery(() => db.accounts.toArray());
+  const [allTransactions] = useCollectionData<Transaction>(
+    query(collections.transactions, orderBy('date', 'desc'))
+  );
+  const [categories] = useCollectionData<Category>(collections.categories);
+  const [accounts] = useCollectionData<Account>(collections.accounts);
 
   const getCategory = (id?: string) => categories?.find(c => c.id === id);
   const getAccount = (id: string) => accounts?.find(a => a.id === id);

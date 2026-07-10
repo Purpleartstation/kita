@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db';
+import { useDocumentData, useCollectionData } from 'react-firebase-hooks/firestore';
+import { doc, updateDoc, setDoc, getDoc } from 'firebase/firestore';
+import { db, collections } from '../db';
+import type { User, Household } from '../db';
 import { useAppStore } from '../store';
 import BottomSheet from './BottomSheet';
-import { User, Users, RefreshCw, CheckCircle2, UserPlus, AlertCircle } from 'lucide-react';
+import { User as UserIcon, Users, RefreshCw, CheckCircle2, UserPlus, AlertCircle } from 'lucide-react';
 
 interface SettingsSheetProps {
   isOpen: boolean;
@@ -16,9 +18,13 @@ export default function SettingsSheet({ isOpen, onClose }: SettingsSheetProps) {
   const setCurrentUser = useAppStore((state) => state.setCurrentUser);
 
   // Fetch current user and household
-  const user = useLiveQuery(() => db.users.get(currentUserId), [currentUserId]);
-  const household = useLiveQuery(() => db.households.get(currentHouseholdId), [currentHouseholdId]);
-  const allUsers = useLiveQuery(() => db.users.toArray());
+  const [user] = useDocumentData<User>(
+    currentUserId ? doc(collections.users, currentUserId) : null
+  );
+  const [household] = useDocumentData<Household>(
+    currentHouseholdId ? doc(collections.households, currentHouseholdId) : null
+  );
+  const [allUsers] = useCollectionData<User>(collections.users);
 
   // Input states
   const [name, setName] = useState('');
@@ -45,7 +51,7 @@ export default function SettingsSheet({ isOpen, onClose }: SettingsSheetProps) {
   useEffect(() => {
     const ensureUserData = async () => {
       if (user && (!user.email || !user.password || !user.pin)) {
-        await db.users.update(currentUserId, {
+        await updateDoc(doc(db, 'users', currentUserId), {
           email: user.email || 'juan@example.com',
           password: user.password || 'password123',
           pin: user.pin || '1234',
@@ -53,9 +59,10 @@ export default function SettingsSheet({ isOpen, onClose }: SettingsSheetProps) {
         });
       }
       // Also ensure Maria exists in db
-      const maria = await db.users.get('u2');
-      if (!maria) {
-        await db.users.add({
+      const mariaRef = doc(db, 'users', 'u2');
+      const mariaSnap = await getDoc(mariaRef);
+      if (!mariaSnap.exists()) {
+        await setDoc(mariaRef, {
           id: 'u2',
           name: 'Maria Dela Cruz',
           email: 'maria@example.com',
@@ -75,7 +82,7 @@ export default function SettingsSheet({ isOpen, onClose }: SettingsSheetProps) {
     if (!name.trim()) return;
 
     try {
-      await db.users.update(currentUserId, {
+      await updateDoc(doc(db, 'users', currentUserId), {
         name,
         email,
         password: password === '••••••••' ? user?.password : password,
@@ -93,7 +100,7 @@ export default function SettingsSheet({ isOpen, onClose }: SettingsSheetProps) {
     e.preventDefault();
     if (!partnerEmail.trim() || !household) return;
 
-    // Find user by email in the Dexie DB
+    // Find user by email in the DB
     const foundUser = allUsers?.find(
       u => u.email?.toLowerCase() === partnerEmail.trim().toLowerCase()
     );
@@ -116,7 +123,7 @@ export default function SettingsSheet({ isOpen, onClose }: SettingsSheetProps) {
 
     // Update household members
     const updatedMembers = [...household.memberIds, foundUser.id];
-    await db.households.update(household.id, {
+    await updateDoc(doc(db, 'households', household.id), {
       memberIds: updatedMembers,
       type: 'partner'
     });
@@ -135,7 +142,7 @@ export default function SettingsSheet({ isOpen, onClose }: SettingsSheetProps) {
     if (!confirmDisc) return;
 
     const updatedMembers = household.memberIds.filter(id => id !== memberId);
-    await db.households.update(household.id, {
+    await updateDoc(doc(db, 'households', household.id), {
       memberIds: updatedMembers,
       type: updatedMembers.length > 1 ? 'partner' : 'solo'
     });
@@ -184,7 +191,7 @@ export default function SettingsSheet({ isOpen, onClose }: SettingsSheetProps) {
         {/* Profile Settings Form */}
         <form onSubmit={handleSaveProfile} className="space-y-4">
           <div className="flex items-center gap-2 pl-1">
-            <User size={15} className="text-zinc-500" />
+            <UserIcon size={15} className="text-zinc-500" />
             <h4 className="text-[11px] font-black text-zinc-500 uppercase tracking-widest">My Profile</h4>
           </div>
 

@@ -1,25 +1,29 @@
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db';
+import { useMemo } from 'react';
+import { useCollectionData } from 'react-firebase-hooks/firestore';
+import { query, where } from 'firebase/firestore';
+import { collections } from '../db';
+import type { Transaction, Category } from '../db';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 
-
 export default function Insights() {
+  const [transactions] = useCollectionData<Transaction>(
+    query(collections.transactions, where('type', '==', 'expense'))
+  );
+  const [categories] = useCollectionData<Category>(collections.categories);
 
   // Aggregate expenses by category
-  const expenses = useLiveQuery(async () => {
-    const txs = await db.transactions.where('type').equals('expense').toArray();
-    // In a real app we'd filter by month and account household.
-    // For this mock, just aggregate all seeded expenses
+  const expenses = useMemo(() => {
+    if (!transactions || !categories) return [];
+
     const categoryTotals: Record<string, number> = {};
-    for (const tx of txs) {
+    for (const tx of transactions) {
       const catId = tx.categoryId || 'unknown';
       categoryTotals[catId] = (categoryTotals[catId] || 0) + tx.amount;
     }
     
-    // fetch category info to build the chart data
     const data = [];
     for (const [catId, amount] of Object.entries(categoryTotals)) {
-      const cat = await db.categories.get(catId);
+      const cat = categories.find(c => c.id === catId);
       data.push({
         name: cat?.name || 'Unknown',
         value: amount,
@@ -27,7 +31,7 @@ export default function Insights() {
       });
     }
     return data.sort((a, b) => b.value - a.value);
-  });
+  }, [transactions, categories]);
 
   return (
     <div className="p-4 space-y-6">

@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db';
+import { useCollectionData } from 'react-firebase-hooks/firestore';
+import { doc, getDoc, updateDoc, setDoc, query, where } from 'firebase/firestore';
+import { db, collections } from '../db';
+import type { Bill, Debt, Account } from '../db';
 import { formatDistanceToNow, isPast } from 'date-fns';
 import { useAppStore } from '../store';
 import DebtDetailsSheet from '../components/DebtDetailsSheet';
@@ -38,15 +40,19 @@ export default function BillsDebts() {
     setConfirmModal(c => ({ ...c, isOpen: false }));
   };
 
-  const bills = useLiveQuery(() => db.bills.toArray());
-  const debts = useLiveQuery(() => db.debts.toArray());
-  const accounts = useLiveQuery(() => db.accounts.where('householdId').equals(currentHouseholdId).toArray(), [currentHouseholdId]);
+  const [bills] = useCollectionData<Bill>(collections.bills);
+  const [debts] = useCollectionData<Debt>(collections.debts);
+  const [accounts] = useCollectionData<Account>(
+    currentHouseholdId ? query(collections.accounts, where('householdId', '==', currentHouseholdId)) : null
+  );
 
   const handlePayBill = async (billId: string) => {
-    const bill = await db.bills.get(billId);
+    const billSnap = await getDoc(doc(db, 'bills', billId));
+    const bill = billSnap.data() as Bill | undefined;
     if (!bill) return;
 
-    const account = await db.accounts.get(bill.accountId);
+    const accountSnap = await getDoc(doc(db, 'accounts', bill.accountId));
+    const account = accountSnap.data() as Account | undefined;
     if (!account) return;
 
     if (account.balance < bill.amount) {
@@ -67,9 +73,11 @@ export default function BillsDebts() {
       confirmLabel: 'Pay Now',
       onConfirm: async () => {
         hideConfirm();
-        await db.accounts.update(bill.accountId, { balance: account.balance - bill.amount });
-        await db.transactions.add({
-          id: `tx_${Date.now()}`,
+        await updateDoc(doc(db, 'accounts', bill.accountId), { balance: account.balance - bill.amount });
+        
+        const txId = `tx_${Date.now()}`;
+        await setDoc(doc(db, 'transactions', txId), {
+          id: txId,
           accountId: bill.accountId,
           categoryId: 'cat_bills',
           amount: bill.amount,
@@ -77,7 +85,8 @@ export default function BillsDebts() {
           note: `Paid ${bill.name} Bill`,
           date: Date.now()
         });
-        await db.bills.update(billId, {
+        
+        await updateDoc(doc(db, 'bills', billId), {
           status: 'paid',
           lastPaidDate: Date.now(),
           timesRecurred: ((bill as any).timesRecurred || 0) + 1
@@ -87,7 +96,8 @@ export default function BillsDebts() {
   };
 
   const handlePayLoan = async (debtId: string) => {
-    const debt = await db.debts.get(debtId);
+    const debtSnap = await getDoc(doc(db, 'debts', debtId));
+    const debt = debtSnap.data() as Debt | undefined;
     if (!debt) return;
 
     if (!accounts || accounts.length === 0) return;
@@ -113,17 +123,20 @@ export default function BillsDebts() {
       confirmLabel: 'Pay Now',
       onConfirm: async () => {
         hideConfirm();
-        await db.accounts.update(account.id, { balance: account.balance - paymentAmount });
+        await updateDoc(doc(db, 'accounts', account.id), { balance: account.balance - paymentAmount });
         const newRemaining = Math.max(0, debt.remainingBalance - paymentAmount);
-        await db.debts.update(debtId, { remainingBalance: newRemaining });
-        await db.transactions.add({
-          id: `tx_${Date.now()}`,
+        await updateDoc(doc(db, 'debts', debtId), { remainingBalance: newRemaining });
+        
+        const txId = `tx_${Date.now()}`;
+        await setDoc(doc(db, 'transactions', txId), {
+          id: txId,
           accountId: account.id,
           amount: paymentAmount,
           type: 'expense',
           note: `Loan Payment: ${debt.name}`,
           date: Date.now()
         });
+        
         if (newRemaining === 0) {
           showConfirm({
             title: '🎉 Loan Fully Paid!',

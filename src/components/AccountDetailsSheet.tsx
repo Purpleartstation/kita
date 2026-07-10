@@ -1,6 +1,8 @@
-import { useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db';
+import { useState, useMemo } from 'react';
+import { useDocumentData, useCollectionData } from 'react-firebase-hooks/firestore';
+import { doc, getDocs, query, where, writeBatch } from 'firebase/firestore';
+import { db, collections } from '../db';
+import type { Account, Transaction, Category } from '../db';
 import BottomSheet from './BottomSheet';
 import { formatDistanceToNow } from 'date-fns';
 import { Trash2, Landmark, Smartphone, Wallet, ArrowRightLeft } from 'lucide-react';
@@ -15,18 +17,20 @@ interface AccountDetailsSheetProps {
 export default function AccountDetailsSheet({ accountId, isOpen, onClose }: AccountDetailsSheetProps) {
   const [selectedTxId, setSelectedTxId] = useState<string | null>(null);
 
-  const account = useLiveQuery(
-    () => (accountId ? db.accounts.get(accountId) : undefined),
-    [accountId]
+  const [account] = useDocumentData<Account>(
+    accountId ? doc(collections.accounts, accountId) : null
   );
 
-
-  const transactions = useLiveQuery(
-    () => (accountId ? db.transactions.where('accountId').equals(accountId).reverse().sortBy('date') : []),
-    [accountId]
+  const [allTransactions] = useCollectionData<Transaction>(
+    accountId ? query(collections.transactions, where('accountId', '==', accountId)) : null
   );
 
-  const categories = useLiveQuery(() => db.categories.toArray());
+  const transactions = useMemo(() => {
+    if (!allTransactions) return [];
+    return [...allTransactions].sort((a, b) => b.date - a.date);
+  }, [allTransactions]);
+
+  const [categories] = useCollectionData<Category>(collections.categories);
   const getCategory = (id?: string) => categories?.find(c => c.id === id);
 
   const handleDelete = async () => {
@@ -34,14 +38,15 @@ export default function AccountDetailsSheet({ accountId, isOpen, onClose }: Acco
     const confirmDelete = window.confirm(`Are you sure you want to delete the account "${account.name}"? This will also delete all associated transactions.`);
     if (!confirmDelete) return;
 
-    // Delete associated transactions
-    const txs = await db.transactions.where('accountId').equals(accountId).toArray();
-    for (const tx of txs) {
-      await db.transactions.delete(tx.id);
-    }
-
-    // Delete the account
-    await db.accounts.delete(accountId);
+    // Delete associated transactions & account in a batch
+    const txQuery = query(collections.transactions, where('accountId', '==', accountId));
+    const txSnap = await getDocs(txQuery);
+    const batch = writeBatch(db);
+    txSnap.forEach((d) => {
+      batch.delete(d.ref);
+    });
+    batch.delete(doc(db, 'accounts', accountId));
+    await batch.commit();
     onClose();
   };
 

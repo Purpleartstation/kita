@@ -1,5 +1,7 @@
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db';
+import { useDocumentData, useCollectionData } from 'react-firebase-hooks/firestore';
+import { doc } from 'firebase/firestore';
+import { db, collections } from '../db';
+import type { Transaction, Account, Category } from '../db';
 import BottomSheet from './BottomSheet';
 import { format } from 'date-fns';
 import { ArrowRightLeft, Calendar, Tag, CreditCard, FileText } from 'lucide-react';
@@ -12,14 +14,13 @@ interface TransactionDetailsSheetProps {
 
 export default function TransactionDetailsSheet({ transactionId, isOpen, onClose }: TransactionDetailsSheetProps) {
   // Fetch transaction
-  const transaction = useLiveQuery(
-    () => (transactionId ? db.transactions.get(transactionId) : undefined),
-    [transactionId]
+  const [transaction] = useDocumentData<Transaction>(
+    transactionId ? doc(collections.transactions, transactionId) : null
   );
 
   // Fetch accounts and categories
-  const accounts = useLiveQuery(() => db.accounts.toArray());
-  const categories = useLiveQuery(() => db.categories.toArray());
+  const [accounts] = useCollectionData<Account>(collections.accounts);
+  const [categories] = useCollectionData<Category>(collections.categories);
 
   if (!transaction) return null;
 

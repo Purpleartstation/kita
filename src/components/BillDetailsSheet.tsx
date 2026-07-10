@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db';
+import { useDocumentData, useCollectionData } from 'react-firebase-hooks/firestore';
+import { doc, getDoc, updateDoc, setDoc, deleteDoc, query, where } from 'firebase/firestore';
+import { db, collections } from '../db';
+import type { Bill, Account, RecurringRule } from '../db';
 import { useAppStore } from '../store';
 import BottomSheet from './BottomSheet';
 import { Trash2, RefreshCw, Edit2, CalendarDays, X } from 'lucide-react';
@@ -38,15 +40,12 @@ export default function BillDetailsSheet({ billId, isOpen, onClose }: BillDetail
   const nameInputRef = useRef<HTMLInputElement>(null);
   const amountInputRef = useRef<HTMLInputElement>(null);
 
-  const bill = useLiveQuery(
-    () => (billId ? db.bills.get(billId) : undefined),
-    [billId]
+  const [bill] = useDocumentData<Bill>(
+    billId ? doc(collections.bills, billId) : null
   );
 
-
-  const accounts = useLiveQuery(
-    () => db.accounts.where('householdId').equals(currentHouseholdId).toArray(),
-    [currentHouseholdId]
+  const [accounts] = useCollectionData<Account>(
+    currentHouseholdId ? query(collections.accounts, where('householdId', '==', currentHouseholdId)) : null
   );
 
   // Initialize values
@@ -76,9 +75,9 @@ export default function BillDetailsSheet({ billId, isOpen, onClose }: BillDetail
     if (!confirmDelete) return;
 
     if (bill.recurringRuleId) {
-      await db.recurringRules.delete(bill.recurringRuleId);
+      await deleteDoc(doc(db, 'recurringRules', bill.recurringRuleId));
     }
-    await db.bills.delete(billId);
+    await deleteDoc(doc(db, 'bills', billId));
     onClose();
   };
 
@@ -87,16 +86,16 @@ export default function BillDetailsSheet({ billId, isOpen, onClose }: BillDetail
     if (!billId || !bill) return;
 
     if (field === 'name' && tempName.trim() !== '') {
-      await db.bills.update(billId, { name: tempName });
+      await updateDoc(doc(db, 'bills', billId), { name: tempName });
       if (bill.recurringRuleId) {
-        await db.recurringRules.update(bill.recurringRuleId, { note: `Recurring: ${tempName}` });
+        await updateDoc(doc(db, 'recurringRules', bill.recurringRuleId), { note: `Recurring: ${tempName}` });
       }
     } else if (field === 'amount') {
       const amt = parseFloat(tempAmount);
       if (!isNaN(amt) && amt > 0) {
-        await db.bills.update(billId, { amount: amt });
+        await updateDoc(doc(db, 'bills', billId), { amount: amt });
         if (bill.recurringRuleId) {
-          await db.recurringRules.update(bill.recurringRuleId, { amount: amt });
+          await updateDoc(doc(db, 'recurringRules', bill.recurringRuleId), { amount: amt });
         }
       } else {
         setTempAmount(bill.amount.toString());
@@ -109,20 +108,20 @@ export default function BillDetailsSheet({ billId, isOpen, onClose }: BillDetail
   const handleDueTypeChange = async (type: 'monthly' | 'specific') => {
     if (!billId) return;
     setDueType(type);
-    await db.bills.update(billId, { dueType: type });
+    await updateDoc(doc(db, 'bills', billId), { dueType: type });
   };
 
   const handleDueDayChange = async (day: number) => {
     if (!billId) return;
     setDueDay(day);
-    await db.bills.update(billId, { dueDay: day });
+    await updateDoc(doc(db, 'bills', billId), { dueDay: day });
     setEditingField(null);
     
     if (bill?.recurringRuleId) {
       const next = new Date();
       next.setDate(day);
       if (next <= new Date()) next.setMonth(next.getMonth() + 1);
-      await db.recurringRules.update(bill.recurringRuleId, {
+      await updateDoc(doc(db, 'recurringRules', bill.recurringRuleId), {
         nextRunDate: next.getTime()
       });
     }
@@ -138,7 +137,7 @@ export default function BillDetailsSheet({ billId, isOpen, onClose }: BillDetail
       nextDates = [...nextDates, ts].sort((a, b) => a - b);
     }
     setSpecificDates(nextDates);
-    await db.bills.update(billId, { 
+    await updateDoc(doc(db, 'bills', billId), { 
       specificDates: nextDates,
       dueDay: nextDates.length > 0 ? new Date(nextDates[0]).getDate() : 0
     });
@@ -148,7 +147,7 @@ export default function BillDetailsSheet({ billId, isOpen, onClose }: BillDetail
     if (!billId) return;
     const nextDates = specificDates.filter(t => t !== ts);
     setSpecificDates(nextDates);
-    await db.bills.update(billId, { 
+    await updateDoc(doc(db, 'bills', billId), { 
       specificDates: nextDates,
       dueDay: nextDates.length > 0 ? new Date(nextDates[0]).getDate() : 0
     });
@@ -169,7 +168,8 @@ export default function BillDetailsSheet({ billId, isOpen, onClose }: BillDetail
   const handlePay = async () => {
     if (!bill || !paymentAccountId) return;
     
-    const account = await db.accounts.get(paymentAccountId);
+    const accountSnap = await getDoc(doc(db, 'accounts', paymentAccountId));
+    const account = accountSnap.data() as Account | undefined;
     if (!account) {
       alert('Selected account not found!');
       return;
@@ -183,10 +183,11 @@ export default function BillDetailsSheet({ billId, isOpen, onClose }: BillDetail
     const confirmPay = window.confirm(`Confirm payment of ₱${bill.amount.toLocaleString()} to ${bill.name} using ${account.name}?`);
     if (!confirmPay) return;
 
-    await db.accounts.update(paymentAccountId, { balance: account.balance - bill.amount });
+    await updateDoc(doc(db, 'accounts', paymentAccountId), { balance: account.balance - bill.amount });
 
-    await db.transactions.add({
-      id: `tx_${Date.now()}`,
+    const txId = `tx_${Date.now()}`;
+    await setDoc(doc(db, 'transactions', txId), {
+      id: txId,
       accountId: paymentAccountId,
       categoryId: 'cat_bills',
       amount: bill.amount,
@@ -195,7 +196,7 @@ export default function BillDetailsSheet({ billId, isOpen, onClose }: BillDetail
       date: Date.now()
     });
 
-    await db.bills.update(bill.id, {
+    await updateDoc(doc(db, 'bills', bill.id), {
       status: 'paid',
       lastPaidDate: Date.now(),
       timesRecurred: ((bill as any).timesRecurred || 0) + 1
@@ -207,9 +208,9 @@ export default function BillDetailsSheet({ billId, isOpen, onClose }: BillDetail
 
   const handleAccountChange = async (accId: string) => {
     if (!billId) return;
-    await db.bills.update(billId, { accountId: accId });
+    await updateDoc(doc(db, 'bills', billId), { accountId: accId });
     if (bill?.recurringRuleId) {
-      await db.recurringRules.update(bill.recurringRuleId, { accountId: accId });
+      await updateDoc(doc(db, 'recurringRules', bill.recurringRuleId), { accountId: accId });
     }
   };
 

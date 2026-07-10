@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db';
+import { useCollectionData } from 'react-firebase-hooks/firestore';
+import { query, where, setDoc, doc } from 'firebase/firestore';
+import { db, collections } from '../db';
+import type { Account } from '../db';
 import { useAppStore } from '../store';
 import BottomSheet from './BottomSheet';
 import { X, RefreshCw, CalendarDays } from 'lucide-react';
@@ -30,9 +32,8 @@ export default function BillSheet({ isOpen, onClose }: BillSheetProps) {
   const [specificDates, setSpecificDates] = useState<number[]>([]);
   const [showSpecificCalendar, setShowSpecificCalendar] = useState(false);
 
-  const accounts = useLiveQuery(
-    () => db.accounts.where('householdId').equals(currentHouseholdId).toArray(),
-    [currentHouseholdId]
+  const [accounts] = useCollectionData<Account>(
+    currentHouseholdId ? query(collections.accounts, where('householdId', '==', currentHouseholdId)) : null
   );
 
   const toggleSpecificDate = (ts: number) => {
@@ -63,7 +64,7 @@ export default function BillSheet({ isOpen, onClose }: BillSheetProps) {
     if (dueType === 'monthly') {
       // Auto-create a recurring rule for monthly bills
       const ruleId = `rule_${Date.now()}`;
-      await db.recurringRules.add({
+      await setDoc(doc(db, 'recurringRules', ruleId), {
         id: ruleId,
         accountId,
         type: 'expense',
@@ -79,10 +80,11 @@ export default function BillSheet({ isOpen, onClose }: BillSheetProps) {
         variableAmountFlag: false,
         note: `Recurring: ${name}`,
         endType: 'forever',
-      } as any);
+      });
 
-      await db.bills.add({
-        id: `bill_${Date.now()}`,
+      const billId = `bill_${Date.now()}`;
+      await setDoc(doc(db, 'bills', billId), {
+        id: billId,
         name: name.trim(),
         accountId,
         amount: numAmount,
@@ -94,8 +96,9 @@ export default function BillSheet({ isOpen, onClose }: BillSheetProps) {
       });
     } else {
       // Specific mode: one bill record with specificDates array
-      await db.bills.add({
-        id: `bill_${Date.now()}`,
+      const billId = `bill_${Date.now()}`;
+      await setDoc(doc(db, 'bills', billId), {
+        id: billId,
         name: name.trim(),
         accountId,
         amount: numAmount,

@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db';
+import { useCollectionData } from 'react-firebase-hooks/firestore';
+import { query, where } from 'firebase/firestore';
+import { db, collections } from '../db';
+import type { Account } from '../db';
 import { Landmark, Smartphone, Wallet, ChevronRight } from 'lucide-react';
 import { useAppStore } from '../store';
 import AccountDetailsSheet from '../components/AccountDetailsSheet';
@@ -12,16 +14,13 @@ export default function Accounts() {
 
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
 
-  const accounts = useLiveQuery(
-    () => {
-      let query = db.accounts.where('householdId').equals(currentHouseholdId);
-      if (viewMode === 'mine') {
-        return query.toArray().then(accs => accs.filter(a => a.ownerId === currentUserId || a.ownerId === null));
-      }
-      return query.toArray();
-    },
-    [currentHouseholdId, currentUserId, viewMode]
+  const [allAccounts] = useCollectionData<Account>(
+    currentHouseholdId ? query(collections.accounts, where('householdId', '==', currentHouseholdId)) : null
   );
+
+  const accounts = allAccounts && viewMode === 'mine' 
+    ? allAccounts.filter(a => a.ownerId === currentUserId || a.ownerId === null)
+    : allAccounts;
 
   const totalBalance = accounts?.reduce((sum, acc) => sum + acc.balance, 0) || 0;
 

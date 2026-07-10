@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db';
+import { useCollectionData, useDocumentData } from 'react-firebase-hooks/firestore';
+import { doc, query, where, orderBy, limit } from 'firebase/firestore';
+import { db, collections } from '../db';
+import type { User, Account, Bill, Transaction, Category } from '../db';
 import { useAppStore } from '../store';
 import { formatDistanceToNow, isPast } from 'date-fns';
 import { Link } from 'react-router-dom';
@@ -16,30 +18,29 @@ export default function Home() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [selectedTxId, setSelectedTxId] = useState<string | null>(null);
 
-  const user = useLiveQuery(() => db.users.get(currentUserId), [currentUserId]);
-
-  const accounts = useLiveQuery(
-    () => {
-      let query = db.accounts.where('householdId').equals(currentHouseholdId);
-      if (viewMode === 'mine') {
-        return query.toArray().then(accs => accs.filter(a => a.ownerId === currentUserId || a.ownerId === null));
-      }
-      return query.toArray();
-    },
-    [currentHouseholdId, currentUserId, viewMode]
+  // Safely skip queries if user is not loaded
+  const [user] = useDocumentData<User>(
+    currentUserId ? doc(collections.users, currentUserId) : null
   );
 
-  const bills = useLiveQuery(
-    () => db.bills.where('status').anyOf('upcoming', 'due-soon', 'overdue').toArray()
+  const [allAccounts] = useCollectionData<Account>(
+    currentHouseholdId ? query(collections.accounts, where('householdId', '==', currentHouseholdId)) : null
+  );
+  
+  const accounts = allAccounts && viewMode === 'mine' 
+    ? allAccounts.filter(a => a.ownerId === currentUserId || a.ownerId === null)
+    : allAccounts;
+
+  const [bills] = useCollectionData<Bill>(
+    query(collections.bills, where('status', 'in', ['upcoming', 'due-soon', 'overdue']))
   );
 
-  const transactions = useLiveQuery(
-    () => db.transactions.orderBy('date').reverse().toArray().then(txs => 
-      txs.filter(tx => !tx.id.endsWith('_in')).slice(0, 5)
-    )
+  const [allTransactions] = useCollectionData<Transaction>(
+    query(collections.transactions, orderBy('date', 'desc'), limit(15))
   );
+  const transactions = allTransactions?.filter(tx => !tx.id.endsWith('_in')).slice(0, 5);
 
-  const categories = useLiveQuery(() => db.categories.toArray());
+  const [categories] = useCollectionData<Category>(collections.categories);
   const getCategory = (id?: string) => categories?.find(c => c.id === id);
   const getAccount = (id: string) => accounts?.find(a => a.id === id);
 

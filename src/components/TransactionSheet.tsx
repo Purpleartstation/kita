@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db';
-import type { TransactionType } from '../db';
+import { useCollectionData } from 'react-firebase-hooks/firestore';
+import { query, where, getDoc, doc, updateDoc, setDoc } from 'firebase/firestore';
+import { db, collections } from '../db';
+import type { TransactionType, Account, Category } from '../db';
 import { useAppStore } from '../store';
 import BottomSheet from './BottomSheet';
 
@@ -19,8 +20,12 @@ export default function TransactionSheet({ isOpen, onClose, type }: TransactionS
   const [categoryId, setCategoryId] = useState('');
   const [customCategoryName, setCustomCategoryName] = useState('');
 
-  const accounts = useLiveQuery(() => db.accounts.where('householdId').equals(currentHouseholdId).toArray(), [currentHouseholdId]);
-  const categories = useLiveQuery(() => db.categories.where('type').equals(type).toArray(), [type]);
+  const [accounts] = useCollectionData<Account>(
+    currentHouseholdId ? query(collections.accounts, where('householdId', '==', currentHouseholdId)) : null
+  );
+  const [categories] = useCollectionData<Category>(
+    query(collections.categories, where('type', '==', type))
+  );
 
   const handleKeypad = (num: string) => {
     if (num === 'backspace') setAmount(prev => prev.slice(0, -1));
@@ -37,7 +42,7 @@ export default function TransactionSheet({ isOpen, onClose, type }: TransactionS
 
     if (customCategoryName.trim() !== '') {
       finalCategoryId = `cat_${Date.now()}`;
-      await db.categories.add({
+      await setDoc(doc(db, 'categories', finalCategoryId), {
         id: finalCategoryId,
         name: customCategoryName.trim(),
         icon: 'tag',
@@ -46,8 +51,9 @@ export default function TransactionSheet({ isOpen, onClose, type }: TransactionS
       });
     }
 
-    await db.transactions.add({
-      id: `tx_${Date.now()}`,
+    const txId = `tx_${Date.now()}`;
+    await setDoc(doc(db, 'transactions', txId), {
+      id: txId,
       accountId,
       categoryId: finalCategoryId,
       amount: numAmount,
@@ -57,10 +63,11 @@ export default function TransactionSheet({ isOpen, onClose, type }: TransactionS
     });
 
     // Update account balance
-    const account = await db.accounts.get(accountId);
+    const accountSnap = await getDoc(doc(db, 'accounts', accountId));
+    const account = accountSnap.data() as Account | undefined;
     if (account) {
       const newBalance = type === 'income' ? account.balance + numAmount : account.balance - numAmount;
-      await db.accounts.update(accountId, { balance: newBalance });
+      await updateDoc(doc(db, 'accounts', accountId), { balance: newBalance });
     }
 
     onClose();

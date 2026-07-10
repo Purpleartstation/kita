@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db';
+import { useCollectionData } from 'react-firebase-hooks/firestore';
+import { query, where, getDoc, doc, updateDoc, setDoc } from 'firebase/firestore';
+import { db, collections } from '../db';
+import type { Account } from '../db';
 import { useAppStore } from '../store';
 import BottomSheet from './BottomSheet';
 
@@ -16,7 +18,9 @@ export default function TransferSheet({ isOpen, onClose }: TransferSheetProps) {
   const [fromAccountId, setFromAccountId] = useState('');
   const [toAccountId, setToAccountId] = useState('');
 
-  const accounts = useLiveQuery(() => db.accounts.where('householdId').equals(currentHouseholdId).toArray(), [currentHouseholdId]);
+  const [accounts] = useCollectionData<Account>(
+    currentHouseholdId ? query(collections.accounts, where('householdId', '==', currentHouseholdId)) : null
+  );
 
   const handleKeypad = (num: string) => {
     if (num === 'backspace') setAmount(prev => prev.slice(0, -1));
@@ -30,22 +34,24 @@ export default function TransferSheet({ isOpen, onClose }: TransferSheetProps) {
     if (isNaN(numAmount) || numAmount <= 0) return;
 
     // Deduct from source
-    const fromAccount = await db.accounts.get(fromAccountId);
+    const fromAccountSnap = await getDoc(doc(db, 'accounts', fromAccountId));
+    const fromAccount = fromAccountSnap.data() as Account | undefined;
     if (fromAccount) {
-      await db.accounts.update(fromAccountId, { balance: fromAccount.balance - numAmount });
+      await updateDoc(doc(db, 'accounts', fromAccountId), { balance: fromAccount.balance - numAmount });
     }
 
     // Add to target
-    const toAccount = await db.accounts.get(toAccountId);
+    const toAccountSnap = await getDoc(doc(db, 'accounts', toAccountId));
+    const toAccount = toAccountSnap.data() as Account | undefined;
     if (toAccount) {
-      await db.accounts.update(toAccountId, { balance: toAccount.balance + numAmount });
+      await updateDoc(doc(db, 'accounts', toAccountId), { balance: toAccount.balance + numAmount });
     }
 
     const groupId = `transfer_${Date.now()}`;
     const transferNote = note || `Transfer ${fromAccount?.name || 'Account'} → ${toAccount?.name || 'Account'}`;
 
     // "Transfer out" record — shows on source account (BPI)
-    await db.transactions.add({
+    await setDoc(doc(db, 'transactions', `${groupId}_out`), {
       id: `${groupId}_out`,
       accountId: fromAccountId,
       categoryId: 'cat_transfer',
@@ -57,7 +63,7 @@ export default function TransferSheet({ isOpen, onClose }: TransferSheetProps) {
     });
 
     // "Transfer in" record — shows on destination account (Cash on Hand)
-    await db.transactions.add({
+    await setDoc(doc(db, 'transactions', `${groupId}_in`), {
       id: `${groupId}_in`,
       accountId: toAccountId,
       categoryId: 'cat_transfer',

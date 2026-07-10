@@ -1,6 +1,8 @@
-import { useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db';
+import { useState, useMemo } from 'react';
+import { useDocumentData, useCollectionData } from 'react-firebase-hooks/firestore';
+import { doc, getDoc, updateDoc, setDoc, deleteDoc, query, where } from 'firebase/firestore';
+import { db, collections } from '../db';
+import type { Debt, Account, Transaction } from '../db';
 import { useAppStore } from '../store';
 import BottomSheet from './BottomSheet';
 import { Trash2, TrendingDown, Award } from 'lucide-react';
@@ -16,33 +18,30 @@ export default function DebtDetailsSheet({ debtId, isOpen, onClose }: DebtDetail
   const [payAmount, setPayAmount] = useState('');
   const [selectedAccountId, setSelectedAccountId] = useState('');
 
-  const debt = useLiveQuery(
-    () => (debtId ? db.debts.get(debtId) : undefined),
-    [debtId]
+  const [debt] = useDocumentData<Debt>(
+    debtId ? doc(collections.debts, debtId) : null
   );
 
-  const accounts = useLiveQuery(
-    () => db.accounts.where('householdId').equals(currentHouseholdId).toArray(),
-    [currentHouseholdId]
+  const [accounts] = useCollectionData<Account>(
+    currentHouseholdId ? query(collections.accounts, where('householdId', '==', currentHouseholdId)) : null
   );
 
+  const [allTransactions] = useCollectionData<Transaction>(collections.transactions);
+  
   // Filter transactions that mention this debt in their note
-  const payments = useLiveQuery(
-    () => {
-      if (!debt) return [];
-      return db.transactions
-        .toArray()
-        .then(txs => txs.filter(tx => tx.note.toLowerCase().includes(debt.name.toLowerCase())).reverse());
-    },
-    [debt]
-  );
+  const payments = useMemo(() => {
+    if (!debt || !allTransactions) return [];
+    return allTransactions
+      .filter(tx => tx.note.toLowerCase().includes(debt.name.toLowerCase()))
+      .sort((a, b) => b.date - a.date);
+  }, [debt, allTransactions]);
 
   const handleDelete = async () => {
     if (!debtId || !debt) return;
     const confirmDelete = window.confirm(`Delete the debt "${debt.name}"? This action cannot be undone.`);
     if (!confirmDelete) return;
 
-    await db.debts.delete(debtId);
+    await deleteDoc(doc(db, 'debts', debtId));
     onClose();
   };
 
@@ -54,22 +53,24 @@ export default function DebtDetailsSheet({ debtId, isOpen, onClose }: DebtDetail
       return;
     }
 
-    const account = await db.accounts.get(selectedAccountId);
+    const accountSnap = await getDoc(doc(db, 'accounts', selectedAccountId));
+    const account = accountSnap.data() as Account | undefined;
     if (!account || account.balance < amountToPay) {
       alert('Insufficient funds in the selected account.');
       return;
     }
 
     // Deduct from account
-    await db.accounts.update(selectedAccountId, { balance: account.balance - amountToPay });
+    await updateDoc(doc(db, 'accounts', selectedAccountId), { balance: account.balance - amountToPay });
 
     // Update remaining balance
     const newBalance = Math.max(0, debt.remainingBalance - amountToPay);
-    await db.debts.update(debt.id, { remainingBalance: newBalance });
+    await updateDoc(doc(db, 'debts', debt.id), { remainingBalance: newBalance });
 
     // Log transaction
-    await db.transactions.add({
-      id: `tx_${Date.now()}`,
+    const txId = `tx_${Date.now()}`;
+    await setDoc(doc(db, 'transactions', txId), {
+      id: txId,
       accountId: selectedAccountId,
       amount: amountToPay,
       type: 'expense',

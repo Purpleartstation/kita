@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../db';
 import BottomSheet from './BottomSheet';
 
@@ -28,8 +29,9 @@ export default function DebtSheet({ isOpen, onClose }: DebtSheetProps) {
 
     if (isNaN(origAmt) || isNaN(remBal) || isNaN(rate) || isNaN(instAmt) || isNaN(due)) return;
 
-    await db.debts.add({
-      id: `debt_${Date.now()}`,
+    const debtId = `debt_${Date.now()}`;
+    await setDoc(doc(db, 'debts', debtId), {
+      id: debtId,
       name,
       lender,
       originalAmount: origAmt,

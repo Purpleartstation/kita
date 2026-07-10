@@ -1,4 +1,5 @@
-import Dexie, { type EntityTable } from 'dexie';
+import { collection, doc, setDoc, getDoc } from 'firebase/firestore';
+import { db as firestoreDb } from './firebase';
 
 export type AccountType = 'bank' | 'ewallet' | 'cash';
 export type TransactionType = 'income' | 'expense' | 'transfer';
@@ -102,103 +103,96 @@ export interface NotificationMsg {
   createdAt: number;
 }
 
-export const db = new Dexie('KitaDB') as Dexie & {
-  users: EntityTable<User, 'id'>;
-  households: EntityTable<Household, 'id'>;
-  accounts: EntityTable<Account, 'id'>;
-  categories: EntityTable<Category, 'id'>;
-  transactions: EntityTable<Transaction, 'id'>;
-  recurringRules: EntityTable<RecurringRule, 'id'>;
-  bills: EntityTable<Bill, 'id'>;
-  debts: EntityTable<Debt, 'id'>;
-  notifications: EntityTable<NotificationMsg, 'id'>;
+// Export Firestore instance as db to minimize import changes
+export const db = firestoreDb;
+
+// Collection helpers
+export const collections = {
+  users: collection(db, 'users'),
+  households: collection(db, 'households'),
+  accounts: collection(db, 'accounts'),
+  categories: collection(db, 'categories'),
+  transactions: collection(db, 'transactions'),
+  recurringRules: collection(db, 'recurringRules'),
+  bills: collection(db, 'bills'),
+  debts: collection(db, 'debts'),
+  notifications: collection(db, 'notifications'),
 };
 
-db.version(1).stores({
-  users: 'id',
-  households: 'id',
-  accounts: 'id, householdId, ownerId, type',
-  categories: 'id, type',
-  transactions: 'id, accountId, categoryId, date, type',
-  recurringRules: 'id, accountId, nextRunDate',
-  bills: 'id, accountId, status',
-  debts: 'id',
-  notifications: 'id, userId, read, createdAt'
-});
-
 export async function seedMockData() {
-  const usersCount = await db.users.count();
-  if (usersCount > 0) return; // already seeded
+  // Check if users collection has data by attempting to fetch a known mock user
+  const u1Ref = doc(db, 'users', 'u1');
+  const u1Snap = await getDoc(u1Ref);
+  if (u1Snap.exists()) return; // already seeded
 
   const now = Date.now();
   const userId = 'u1';
   const householdId = 'h1';
 
-  await db.users.bulkAdd([
-    {
-      id: 'u1',
-      name: 'Juan Dela Cruz',
-      email: 'juan@example.com',
-      password: 'password123',
-      hasPin: true,
-      pin: '1234'
-    },
-    {
-      id: 'u2',
-      name: 'Maria Dela Cruz',
-      email: 'maria@example.com',
-      password: 'password123',
-      hasPin: true,
-      pin: '5678'
-    }
-  ]);
+  await setDoc(doc(db, 'users', 'u1'), {
+    id: 'u1',
+    name: 'Juan Dela Cruz',
+    email: 'juan@example.com',
+    password: 'password123',
+    hasPin: true,
+    pin: '1234'
+  });
+  
+  await setDoc(doc(db, 'users', 'u2'), {
+    id: 'u2',
+    name: 'Maria Dela Cruz',
+    email: 'maria@example.com',
+    password: 'password123',
+    hasPin: true,
+    pin: '5678'
+  });
 
-  await db.households.add({
+  await setDoc(doc(db, 'households', householdId), {
     id: householdId,
     name: 'Dela Cruz Family',
     type: 'partner',
-    memberIds: ['u1', 'u2'] // connected by default in mock data so they see it live
+    memberIds: ['u1', 'u2'] 
   });
 
   const account1 = 'acc_gcash';
   const account2 = 'acc_bpi';
   const account3 = 'acc_cash';
 
-  await db.accounts.bulkAdd([
-    {
-      id: account1,
-      householdId,
-      ownerId: userId,
-      name: 'GCash',
-      type: 'ewallet',
-      institution: 'GCash',
-      balance: 8230,
-      color: '#0052FF',
-      icon: 'smartphone'
-    },
-    {
-      id: account2,
-      householdId,
-      ownerId: userId,
-      name: 'BPI Savings',
-      type: 'bank',
-      institution: 'BPI',
-      balance: 45000,
-      color: '#B22222',
-      icon: 'landmark'
-    },
-    {
-      id: account3,
-      householdId,
-      ownerId: null, // shared
-      name: 'Cash on Hand',
-      type: 'cash',
-      institution: 'Cash',
-      balance: 1500,
-      color: '#228B22',
-      icon: 'wallet'
-    }
-  ]);
+  await setDoc(doc(db, 'accounts', account1), {
+    id: account1,
+    householdId,
+    ownerId: userId,
+    name: 'GCash',
+    type: 'ewallet',
+    institution: 'GCash',
+    balance: 8230,
+    color: '#0052FF',
+    icon: 'smartphone'
+  });
+  
+  await setDoc(doc(db, 'accounts', account2), {
+    id: account2,
+    householdId,
+    ownerId: userId,
+    name: 'BPI Savings',
+    type: 'bank',
+    institution: 'BPI',
+    balance: 45000,
+    color: '#B22222',
+    icon: 'landmark'
+  });
+  
+  await setDoc(doc(db, 'accounts', account3), {
+    id: account3,
+    householdId,
+    ownerId: null,
+    name: 'Cash on Hand',
+    type: 'cash',
+    institution: 'Cash',
+    balance: 1500,
+    color: '#228B22',
+    icon: 'wallet'
+  });
 
   const catFoodId = 'cat_food';
   const catSalaryId = 'cat_salary';
@@ -206,54 +200,52 @@ export async function seedMockData() {
   const catBillsId = 'cat_bills';
   const catTransferId = 'cat_transfer';
 
-  await db.categories.bulkAdd([
-    { id: catFoodId, name: 'Food', icon: 'utensils', type: 'expense', color: '#F59E0B' },
-    { id: catTranspoId, name: 'Transport', icon: 'bus', type: 'expense', color: '#3B82F6' },
-    { id: catBillsId, name: 'Bills', icon: 'receipt', type: 'expense', color: '#EF4444' },
-    { id: catSalaryId, name: 'Salary', icon: 'briefcase', type: 'income', color: '#10B981' },
-    { id: catTransferId, name: 'Transfer', icon: 'arrow-right-left', type: 'transfer', color: '#818CF8' }
-  ]);
+  await setDoc(doc(db, 'categories', catFoodId), { id: catFoodId, name: 'Food', icon: 'utensils', type: 'expense', color: '#F59E0B' });
+  await setDoc(doc(db, 'categories', catTranspoId), { id: catTranspoId, name: 'Transport', icon: 'bus', type: 'expense', color: '#3B82F6' });
+  await setDoc(doc(db, 'categories', catBillsId), { id: catBillsId, name: 'Bills', icon: 'receipt', type: 'expense', color: '#EF4444' });
+  await setDoc(doc(db, 'categories', catSalaryId), { id: catSalaryId, name: 'Salary', icon: 'briefcase', type: 'income', color: '#10B981' });
+  await setDoc(doc(db, 'categories', catTransferId), { id: catTransferId, name: 'Transfer', icon: 'arrow-right-left', type: 'transfer', color: '#818CF8' });
 
-  await db.transactions.bulkAdd([
-    {
-      id: 'tx_1',
-      accountId: account2,
-      categoryId: catSalaryId,
-      amount: 25000,
-      type: 'income',
-      note: 'Quincena Salary',
-      date: now - 5 * 86400000 // 5 days ago
-    },
-    {
-      id: 'tx_2',
-      accountId: account1,
-      categoryId: catFoodId,
-      amount: 350,
-      type: 'expense',
-      note: 'Groceries',
-      date: now - 2 * 86400000
-    },
-    {
-      id: 'tx_3',
-      accountId: account3,
-      categoryId: catTranspoId,
-      amount: 50,
-      type: 'expense',
-      note: 'Jeepney',
-      date: now - 86400000
-    }
-  ]);
+  await setDoc(doc(db, 'transactions', 'tx_1'), {
+    id: 'tx_1',
+    accountId: account2,
+    categoryId: catSalaryId,
+    amount: 25000,
+    type: 'income',
+    note: 'Quincena Salary',
+    date: now - 5 * 86400000 
+  });
+  
+  await setDoc(doc(db, 'transactions', 'tx_2'), {
+    id: 'tx_2',
+    accountId: account1,
+    categoryId: catFoodId,
+    amount: 350,
+    type: 'expense',
+    note: 'Groceries',
+    date: now - 2 * 86400000
+  });
+  
+  await setDoc(doc(db, 'transactions', 'tx_3'), {
+    id: 'tx_3',
+    accountId: account3,
+    categoryId: catTranspoId,
+    amount: 50,
+    type: 'expense',
+    note: 'Jeepney',
+    date: now - 86400000
+  });
 
-  await db.bills.add({
+  await setDoc(doc(db, 'bills', 'bill_meralco'), {
     id: 'bill_meralco',
     name: 'Meralco',
     accountId: account1,
     amount: 1800,
-    dueDay: new Date().getDate() + 3 > 30 ? 5 : new Date().getDate() + 3, // Due in 3 days roughly
+    dueDay: new Date().getDate() + 3 > 30 ? 5 : new Date().getDate() + 3,
     status: 'upcoming'
   });
 
-  await db.debts.add({
+  await setDoc(doc(db, 'debts', 'debt_gcredit'), {
     id: 'debt_gcredit',
     name: 'GCredit',
     lender: 'GCash',
@@ -266,11 +258,12 @@ export async function seedMockData() {
   });
 }
 
-// Ensures the system Transfer category always exists (safe to call on every app start)
+// Ensures the system Transfer category always exists
 export async function ensureTransferCategory() {
-  const exists = await db.categories.get('cat_transfer');
-  if (!exists) {
-    await db.categories.add({
+  const ref = doc(db, 'categories', 'cat_transfer');
+  const snap = await getDoc(ref);
+  if (!snap.exists()) {
+    await setDoc(ref, {
       id: 'cat_transfer',
       name: 'Transfer',
       icon: 'arrow-right-left',
