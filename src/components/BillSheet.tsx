@@ -68,7 +68,7 @@ export default function BillSheet({ isOpen, onClose }: BillSheetProps) {
         id: ruleId,
         accountId,
         type: 'expense',
-        categoryId: 'cat_bills',
+        categoryId: `cat_bills_${currentHouseholdId}`,
         amount: numAmount,
         frequency: 'monthly',
         nextRunDate: (() => {
@@ -80,6 +80,7 @@ export default function BillSheet({ isOpen, onClose }: BillSheetProps) {
         variableAmountFlag: false,
         note: `Recurring: ${name}`,
         endType: 'forever',
+        householdId: currentHouseholdId
       });
 
       const billId = `bill_${Date.now()}`;
@@ -93,6 +94,7 @@ export default function BillSheet({ isOpen, onClose }: BillSheetProps) {
         status: 'upcoming',
         recurringRuleId: ruleId,
         timesRecurred: 0,
+        householdId: currentHouseholdId
       });
     } else {
       // Specific mode: one bill record with specificDates array
@@ -107,6 +109,7 @@ export default function BillSheet({ isOpen, onClose }: BillSheetProps) {
         specificDates,
         status: 'upcoming',
         timesRecurred: 0,
+        householdId: currentHouseholdId
       });
     }
 

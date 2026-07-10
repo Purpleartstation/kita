@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useDocumentData, useCollectionData } from 'react-firebase-hooks/firestore';
 import { doc, updateDoc, setDoc, getDoc } from 'firebase/firestore';
-import { db, collections } from '../db';
+import { db, collections, wipeHouseholdData } from '../db';
 import type { User, Household } from '../db';
 import { useAppStore } from '../store';
 import BottomSheet from './BottomSheet';
-import { User as UserIcon, Users, RefreshCw, CheckCircle2, UserPlus, AlertCircle } from 'lucide-react';
+import { User as UserIcon, Users, RefreshCw, CheckCircle2, UserPlus, AlertCircle, Trash2 } from 'lucide-react';
+import { signOut } from 'firebase/auth';
+import { auth } from '../firebase';
 
 interface SettingsSheetProps {
   isOpen: boolean;
@@ -329,6 +331,44 @@ export default function SettingsSheet({ isOpen, onClose }: SettingsSheetProps) {
             </form>
           </div>
         </div>
+
+        {/* Danger Zone */}
+        <div className="space-y-4 pt-4 border-t border-rose-500/10 mt-6">
+          <div className="flex items-center gap-2 pl-1">
+            <AlertCircle size={15} className="text-rose-500" />
+            <h4 className="text-[11px] font-black text-rose-500 uppercase tracking-widest">Danger Zone</h4>
+          </div>
+
+          <div className="space-y-3">
+            <button
+              onClick={async () => {
+                const confirmed = window.confirm('Are you absolutely sure? This will delete ALL transactions, bills, debts, and accounts for your household. This cannot be undone.');
+                if (confirmed) {
+                  await wipeHouseholdData(currentHouseholdId);
+                  alert('Household data wiped successfully.');
+                  window.location.reload();
+                }
+              }}
+              className="w-full flex items-center justify-between p-4 bg-rose-500/5 hover:bg-rose-500/10 border border-rose-500/20 rounded-2xl transition-all group"
+            >
+              <div className="text-left">
+                <p className="text-sm font-bold text-rose-500 mb-0.5">Reset Household Data</p>
+                <p className="text-[10px] font-medium text-rose-500/70">Wipe all transactions, bills, and accounts</p>
+              </div>
+              <div className="w-8 h-8 rounded-full bg-rose-500/10 flex items-center justify-center group-hover:bg-rose-500/20 transition-colors">
+                <Trash2 size={16} className="text-rose-500" />
+              </div>
+            </button>
+
+            <button
+              onClick={() => signOut(auth)}
+              className="w-full py-3.5 bg-zinc-900 border border-white/5 hover:bg-zinc-800 text-zinc-300 font-bold text-sm rounded-xl transition-all shadow-sm active:scale-[0.98]"
+            >
+              Sign Out
+            </button>
+          </div>
+        </div>
+
       </div>
     </BottomSheet>
   );

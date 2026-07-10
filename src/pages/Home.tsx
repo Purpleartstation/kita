@@ -32,15 +32,17 @@ export default function Home() {
     : allAccounts;
 
   const [bills] = useCollectionData<Bill>(
-    query(collections.bills, where('status', 'in', ['upcoming', 'due-soon', 'overdue']))
+    currentHouseholdId ? query(collections.bills, where('householdId', '==', currentHouseholdId), where('status', 'in', ['upcoming', 'due-soon', 'overdue'])) : null
   );
 
   const [allTransactions] = useCollectionData<Transaction>(
-    query(collections.transactions, orderBy('date', 'desc'), limit(15))
+    currentHouseholdId ? query(collections.transactions, where('householdId', '==', currentHouseholdId), orderBy('date', 'desc'), limit(15)) : null
   );
   const transactions = allTransactions?.filter(tx => !tx.id.endsWith('_in')).slice(0, 5);
 
-  const [categories] = useCollectionData<Category>(collections.categories);
+  const [categories] = useCollectionData<Category>(
+    currentHouseholdId ? query(collections.categories, where('householdId', '==', currentHouseholdId)) : null
+  );
   const getCategory = (id?: string) => categories?.find(c => c.id === id);
   const getAccount = (id: string) => accounts?.find(a => a.id === id);
 

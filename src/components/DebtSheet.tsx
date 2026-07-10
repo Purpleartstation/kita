@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../db';
 import BottomSheet from './BottomSheet';
+import { useAppStore } from '../store';
 
 interface DebtSheetProps {
   isOpen: boolean;
@@ -9,6 +10,7 @@ interface DebtSheetProps {
 }
 
 export default function DebtSheet({ isOpen, onClose }: DebtSheetProps) {
+  const currentHouseholdId = useAppStore(state => state.currentHouseholdId);
   const [name, setName] = useState('');
   const [lender, setLender] = useState('');
   const [originalAmount, setOriginalAmount] = useState('');
@@ -39,7 +41,8 @@ export default function DebtSheet({ isOpen, onClose }: DebtSheetProps) {
       interestRate: rate,
       installmentAmount: instAmt,
       dueDay: due,
-      payoffStrategy
+      payoffStrategy,
+      householdId: currentHouseholdId
     });
 
     onClose();

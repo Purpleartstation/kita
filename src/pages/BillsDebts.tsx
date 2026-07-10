@@ -40,8 +40,12 @@ export default function BillsDebts() {
     setConfirmModal(c => ({ ...c, isOpen: false }));
   };
 
-  const [bills] = useCollectionData<Bill>(collections.bills);
-  const [debts] = useCollectionData<Debt>(collections.debts);
+  const [bills] = useCollectionData<Bill>(
+    currentHouseholdId ? query(collections.bills, where('householdId', '==', currentHouseholdId)) : null
+  );
+  const [debts] = useCollectionData<Debt>(
+    currentHouseholdId ? query(collections.debts, where('householdId', '==', currentHouseholdId)) : null
+  );
   const [accounts] = useCollectionData<Account>(
     currentHouseholdId ? query(collections.accounts, where('householdId', '==', currentHouseholdId)) : null
   );

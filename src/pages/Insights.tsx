@@ -4,12 +4,28 @@ import { query, where } from 'firebase/firestore';
 import { collections } from '../db';
 import type { Transaction, Category } from '../db';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { useAppStore } from '../store';
 
 export default function Insights() {
-  const [transactions] = useCollectionData<Transaction>(
-    query(collections.transactions, where('type', '==', 'expense'))
-  );
-  const [categories] = useCollectionData<Category>(collections.categories);
+  const currentHouseholdId = useAppStore(state => state.currentHouseholdId);
+
+  // Use memoized queries to prevent infinite re-renders
+  const txQuery = useMemo(() => {
+    if (!currentHouseholdId) return null;
+    return query(
+      collections.transactions, 
+      where('householdId', '==', currentHouseholdId),
+      where('type', '==', 'expense')
+    );
+  }, [currentHouseholdId]);
+  
+  const catQuery = useMemo(() => {
+    if (!currentHouseholdId) return null;
+    return query(collections.categories, where('householdId', '==', currentHouseholdId));
+  }, [currentHouseholdId]);
+
+  const [transactions] = useCollectionData<Transaction>(txQuery);
+  const [categories] = useCollectionData<Category>(catQuery);
 
   // Aggregate expenses by category
   const expenses = useMemo(() => {

@@ -54,24 +54,26 @@ export default function TransferSheet({ isOpen, onClose }: TransferSheetProps) {
     await setDoc(doc(db, 'transactions', `${groupId}_out`), {
       id: `${groupId}_out`,
       accountId: fromAccountId,
-      categoryId: 'cat_transfer',
+      categoryId: `cat_transfer_${currentHouseholdId}`,
       targetAccountId: toAccountId,
       amount: numAmount,
       type: 'transfer',
       note: `${transferNote} (Out)`,
-      date: Date.now()
+      date: Date.now(),
+      householdId: currentHouseholdId
     });
 
     // "Transfer in" record — shows on destination account (Cash on Hand)
     await setDoc(doc(db, 'transactions', `${groupId}_in`), {
       id: `${groupId}_in`,
       accountId: toAccountId,
-      categoryId: 'cat_transfer',
+      categoryId: `cat_transfer_${currentHouseholdId}`,
       targetAccountId: fromAccountId,
       amount: numAmount,
       type: 'transfer',
       note: `${transferNote} (In)`,
-      date: Date.now()
+      date: Date.now(),
+      householdId: currentHouseholdId
     });
 
     onClose();

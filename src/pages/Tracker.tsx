@@ -1,10 +1,11 @@
 import { useState, useMemo } from 'react';
 import { useCollectionData } from 'react-firebase-hooks/firestore';
-import { query, orderBy } from 'firebase/firestore';
+import { query, orderBy, where } from 'firebase/firestore';
 import { collections } from '../db';
 import type { Transaction, Category, Account } from '../db';
 import { formatDistanceToNow, isAfter, isBefore, subDays, startOfMonth, startOfYear, format } from 'date-fns';
 import { ArrowRightLeft } from 'lucide-react';
+import { useAppStore } from '../store';
 import TransactionDetailsSheet from '../components/TransactionDetailsSheet';
 
 type DateFilter = 'all' | '7d' | 'month' | 'year' | 'custom';
@@ -22,11 +23,17 @@ export default function Tracker() {
   const [customTo, setCustomTo] = useState('');
   const [customDays, setCustomDays] = useState('');
 
+  const currentHouseholdId = useAppStore(state => state.currentHouseholdId);
+
   const [allTransactions] = useCollectionData<Transaction>(
-    query(collections.transactions, orderBy('date', 'desc'))
+    currentHouseholdId ? query(collections.transactions, where('householdId', '==', currentHouseholdId), orderBy('date', 'desc')) : null
   );
-  const [categories] = useCollectionData<Category>(collections.categories);
-  const [accounts] = useCollectionData<Account>(collections.accounts);
+  const [categories] = useCollectionData<Category>(
+    currentHouseholdId ? query(collections.categories, where('householdId', '==', currentHouseholdId)) : null
+  );
+  const [accounts] = useCollectionData<Account>(
+    currentHouseholdId ? query(collections.accounts, where('householdId', '==', currentHouseholdId)) : null
+  );
 
   const getCategory = (id?: string) => categories?.find(c => c.id === id);
   const getAccount = (id: string) => accounts?.find(a => a.id === id);

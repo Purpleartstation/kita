@@ -43,6 +43,7 @@ export interface Category {
   icon: string;
   type: 'income' | 'expense' | 'transfer';
   color?: string;
+  householdId: string;
 }
 
 export interface Transaction {
@@ -55,6 +56,7 @@ export interface Transaction {
   date: number; // timestamp
   recurringRuleId?: string;
   targetAccountId?: string; // for transfers
+  householdId: string;
 }
 
 export interface RecurringRule {
@@ -68,6 +70,7 @@ export interface RecurringRule {
   variableAmountFlag: boolean;
   note: string;
   targetAccountId?: string; // for transfers
+  householdId: string;
 }
 
 export interface Bill {
@@ -82,6 +85,7 @@ export interface Bill {
   recurringRuleId?: string;
   lastPaidDate?: number;
   timesRecurred?: number;
+  householdId: string;
 }
 
 export interface Debt {
@@ -94,6 +98,7 @@ export interface Debt {
   installmentAmount: number;
   dueDay: number; // 1-31
   payoffStrategy: 'snowball' | 'avalanche';
+  householdId: string;
 }
 
 export interface NotificationMsg {
@@ -162,7 +167,7 @@ export async function createHousehold(userId: string, householdName: string): Pr
   await setDoc(doc(db, 'users', userId), { householdId }, { merge: true });
   
   // Seed default categories for this household
-  await ensureDefaultCategories();
+  await ensureDefaultCategories(householdId);
   
   return householdId;
 }
@@ -187,20 +192,23 @@ export async function joinHousehold(userId: string, householdId: string): Promis
   // Update user with householdId
   await setDoc(doc(db, 'users', userId), { householdId }, { merge: true });
   
+  // Also ensure default categories exist for them just in case
+  await ensureDefaultCategories(householdId);
+  
   return true;
 }
 
 // Seed default expense/income categories
-export async function ensureDefaultCategories() {
+export async function ensureDefaultCategories(householdId: string) {
   const cats = [
-    { id: 'cat_food', name: 'Food', icon: 'utensils', type: 'expense', color: '#F59E0B' },
-    { id: 'cat_transpo', name: 'Transport', icon: 'bus', type: 'expense', color: '#3B82F6' },
-    { id: 'cat_bills', name: 'Bills', icon: 'receipt', type: 'expense', color: '#EF4444' },
-    { id: 'cat_salary', name: 'Salary', icon: 'briefcase', type: 'income', color: '#10B981' },
-    { id: 'cat_transfer', name: 'Transfer', icon: 'arrow-right-left', type: 'transfer', color: '#818CF8' },
-    { id: 'cat_shopping', name: 'Shopping', icon: 'shopping-bag', type: 'expense', color: '#EC4899' },
-    { id: 'cat_entertainment', name: 'Entertainment', icon: 'film', type: 'expense', color: '#8B5CF6' },
-    { id: 'cat_health', name: 'Health', icon: 'heart', type: 'expense', color: '#EF4444' },
+    { id: `cat_food_${householdId}`, name: 'Food', icon: 'utensils', type: 'expense', color: '#F59E0B', householdId },
+    { id: `cat_transpo_${householdId}`, name: 'Transport', icon: 'bus', type: 'expense', color: '#3B82F6', householdId },
+    { id: `cat_bills_${householdId}`, name: 'Bills', icon: 'receipt', type: 'expense', color: '#EF4444', householdId },
+    { id: `cat_salary_${householdId}`, name: 'Salary', icon: 'briefcase', type: 'income', color: '#10B981', householdId },
+    { id: `cat_transfer_${householdId}`, name: 'Transfer', icon: 'arrow-right-left', type: 'transfer', color: '#818CF8', householdId },
+    { id: `cat_shopping_${householdId}`, name: 'Shopping', icon: 'shopping-bag', type: 'expense', color: '#EC4899', householdId },
+    { id: `cat_entertainment_${householdId}`, name: 'Entertainment', icon: 'film', type: 'expense', color: '#8B5CF6', householdId },
+    { id: `cat_health_${householdId}`, name: 'Health', icon: 'heart', type: 'expense', color: '#EF4444', householdId },
   ];
   
   for (const cat of cats) {
@@ -210,4 +218,30 @@ export async function ensureDefaultCategories() {
       await setDoc(ref, cat);
     }
   }
+}
+
+import { getDocs, query, where, writeBatch } from 'firebase/firestore';
+
+export async function wipeHouseholdData(householdId: string) {
+  if (!householdId) return;
+  const collectionsToWipe = ['transactions', 'bills', 'debts', 'categories', 'accounts', 'recurringRules'];
+  
+  const batch = writeBatch(db);
+  let opCount = 0;
+
+  for (const collName of collectionsToWipe) {
+    const q = query(collection(db, collName), where('householdId', '==', householdId));
+    const snapshot = await getDocs(q);
+    snapshot.docs.forEach(d => {
+      batch.delete(d.ref);
+      opCount++;
+    });
+  }
+  
+  if (opCount > 0) {
+    await batch.commit();
+  }
+  
+  // re-seed categories after wipe
+  await ensureDefaultCategories(householdId);
 }

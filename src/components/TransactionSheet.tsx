@@ -24,7 +24,7 @@ export default function TransactionSheet({ isOpen, onClose, type }: TransactionS
     currentHouseholdId ? query(collections.accounts, where('householdId', '==', currentHouseholdId)) : null
   );
   const [categories] = useCollectionData<Category>(
-    query(collections.categories, where('type', '==', type))
+    currentHouseholdId ? query(collections.categories, where('householdId', '==', currentHouseholdId), where('type', '==', type)) : null
   );
 
   const handleKeypad = (num: string) => {
@@ -34,7 +34,7 @@ export default function TransactionSheet({ isOpen, onClose, type }: TransactionS
   };
 
   const handleSave = async () => {
-    if (!amount || !accountId) return;
+    if (!amount || !accountId || !currentHouseholdId) return;
     const numAmount = parseFloat(amount);
     if (isNaN(numAmount) || numAmount <= 0) return;
 
@@ -47,7 +47,8 @@ export default function TransactionSheet({ isOpen, onClose, type }: TransactionS
         name: customCategoryName.trim(),
         icon: 'tag',
         type: type,
-        color: type === 'income' ? '#10B981' : '#F59E0B'
+        color: type === 'income' ? '#10B981' : '#F59E0B',
+        householdId: currentHouseholdId
       });
     }
 
@@ -59,7 +60,8 @@ export default function TransactionSheet({ isOpen, onClose, type }: TransactionS
       amount: numAmount,
       type,
       note,
-      date: Date.now()
+      date: Date.now(),
+      householdId: currentHouseholdId
     });
 
     // Update account balance
