@@ -23,7 +23,7 @@ export default function AddMenu() {
     { id: 'transfer', label: 'Transfer', icon: ArrowRightLeft, color: 'text-indigo-400', bg: 'bg-indigo-500/10' },
     { id: 'account', label: 'Account', icon: Wallet, color: 'text-purple-400', bg: 'bg-purple-500/10' },
     { id: 'bill', label: 'Bill', icon: FileText, color: 'text-amber-400', bg: 'bg-amber-500/10' },
-    { id: 'debt', label: 'Debt', icon: CreditCard, color: 'text-cyan-400', bg: 'bg-cyan-500/10' },
+    { id: 'debt', label: 'Loan', icon: CreditCard, color: 'text-cyan-400', bg: 'bg-cyan-500/10' },
   ];
 
   const handleAction = (id: string) => {

@@ -5,6 +5,8 @@ import { useAppStore } from '../store';
 import { formatDistanceToNow, isPast } from 'date-fns';
 import { Link } from 'react-router-dom';
 import SettingsSheet from '../components/SettingsSheet';
+import TransactionDetailsSheet from '../components/TransactionDetailsSheet';
+import { ArrowRightLeft } from 'lucide-react';
 
 export default function Home() {
   const currentHouseholdId = useAppStore((state) => state.currentHouseholdId);
@@ -12,6 +14,7 @@ export default function Home() {
   const viewMode = useAppStore((state) => state.viewMode);
   
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [selectedTxId, setSelectedTxId] = useState<string | null>(null);
 
   const user = useLiveQuery(() => db.users.get(currentUserId), [currentUserId]);
 
@@ -31,7 +34,9 @@ export default function Home() {
   );
 
   const transactions = useLiveQuery(
-    () => db.transactions.orderBy('date').reverse().limit(5).toArray()
+    () => db.transactions.orderBy('date').reverse().toArray().then(txs => 
+      txs.filter(tx => !tx.id.endsWith('_in')).slice(0, 5)
+    )
   );
 
   const categories = useLiveQuery(() => db.categories.toArray());
@@ -158,19 +163,22 @@ export default function Home() {
               const acc = getAccount(tx.accountId);
               const isIncome = tx.type === 'income';
               const isTransfer = tx.type === 'transfer';
-              const isTransferIn = isTransfer && tx.note?.endsWith('(In)');
+
+              // Clean note to strip " (In)" / " (Out)"
+              const cleanNote = tx.note?.replace(/\s*\((In|Out)\)$/i, '') || cat?.name || 'Transaction';
 
               const amountColor = isTransfer
-                ? (isTransferIn ? 'text-indigo-400' : 'text-zinc-400')
+                ? 'text-zinc-300'
                 : (isIncome ? 'text-emerald-400' : 'text-zinc-100');
 
               const amountPrefix = isTransfer
-                ? (isTransferIn ? '↓+' : '↑−')
+                ? '⇄ '
                 : (isIncome ? '+' : '−');
 
               return (
                 <div
                   key={tx.id}
+                  onClick={() => setSelectedTxId(tx.id)}
                   className="p-3.5 bg-zinc-900/60 rounded-2xl ring-1 ring-white/5 flex items-center gap-3 hover:bg-zinc-800/60 hover:ring-white/8 active:scale-[0.99] transition-all duration-150 cursor-pointer"
                 >
                   {/* Category icon */}
@@ -185,13 +193,13 @@ export default function Home() {
                       color: cat?.color || (isTransfer ? '#818cf8' : '#71717a'),
                     }}
                   >
-                    {isTransfer ? '⇄' : (cat?.name ? cat.name.charAt(0).toUpperCase() : '?')}
+                    {isTransfer ? <ArrowRightLeft size={16} /> : (cat?.name ? cat.name.charAt(0).toUpperCase() : '?')}
                   </div>
 
                   {/* Details */}
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-zinc-100 text-sm leading-tight truncate">
-                      {tx.note || cat?.name || 'Transaction'}
+                      {cleanNote}
                     </p>
                     <div className="flex items-center gap-1.5 mt-0.5 overflow-hidden">
                       <span
@@ -231,6 +239,11 @@ export default function Home() {
       </div>
 
       <SettingsSheet isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+      <TransactionDetailsSheet 
+        transactionId={selectedTxId}
+        isOpen={selectedTxId !== null}
+        onClose={() => setSelectedTxId(null)}
+      />
     </div>
   );
 }

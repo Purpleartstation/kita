@@ -73,7 +73,7 @@ export default function DebtDetailsSheet({ debtId, isOpen, onClose }: DebtDetail
       accountId: selectedAccountId,
       amount: amountToPay,
       type: 'expense',
-      note: `Debt Payment: ${debt.name}`,
+      note: `Loan Payment: ${debt.name}`,
       date: Date.now()
     });
 
@@ -87,7 +87,7 @@ export default function DebtDetailsSheet({ debtId, isOpen, onClose }: DebtDetail
   const progress = ((debt.originalAmount - debt.remainingBalance) / debt.originalAmount) * 100;
 
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title="Debt Overview">
+    <BottomSheet isOpen={isOpen} onClose={onClose} title="Loan Overview">
       <div className="space-y-6 max-h-[75vh] overflow-y-auto no-scrollbar pb-6">
         {/* Debt Header Card */}
         <div className="bg-gradient-to-br from-zinc-800 via-zinc-900 to-zinc-950 text-white p-6 rounded-3xl shadow-lg ring-1 ring-white/10 space-y-4">
@@ -111,7 +111,7 @@ export default function DebtDetailsSheet({ debtId, isOpen, onClose }: DebtDetail
               </p>
             </div>
             <div>
-              <p className="text-[11px] text-zinc-400 font-black uppercase tracking-widest">Original Debt</p>
+              <p className="text-[11px] text-zinc-400 font-black uppercase tracking-widest">Original Loan</p>
               <p className="text-2xl font-black text-zinc-500 tabular-nums tracking-tight mt-1">
                 <span className="opacity-50 mr-1 text-xl">₱</span>
                 {debt.originalAmount.toLocaleString()}
@@ -135,7 +135,7 @@ export default function DebtDetailsSheet({ debtId, isOpen, onClose }: DebtDetail
           </div>
           <div>
             <h4 className="font-black text-[11px] text-zinc-500 uppercase tracking-widest">
-              Strategy: {debt.payoffStrategy === 'snowball' ? 'Debt Snowball' : 'Debt Avalanche'}
+              Strategy: {debt.payoffStrategy === 'snowball' ? 'Loan Snowball' : 'Loan Avalanche'}
             </h4>
             <p className="text-[13px] text-zinc-300 font-bold mt-1.5 leading-relaxed">
               {debt.payoffStrategy === 'snowball' 
@@ -219,7 +219,7 @@ export default function DebtDetailsSheet({ debtId, isOpen, onClose }: DebtDetail
           className="w-full py-3.5 border border-rose-500/30 hover:bg-rose-500/10 text-rose-400 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors active:scale-[0.98] mt-4"
         >
           <Trash2 size={16} />
-          Delete Debt
+          Delete Loan
         </button>
       </div>
     </BottomSheet>

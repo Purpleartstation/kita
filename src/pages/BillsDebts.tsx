@@ -5,12 +5,38 @@ import { formatDistanceToNow, isPast } from 'date-fns';
 import { useAppStore } from '../store';
 import DebtDetailsSheet from '../components/DebtDetailsSheet';
 import BillDetailsSheet from '../components/BillDetailsSheet';
+import ConfirmModal from '../components/ConfirmModal';
 
 export default function BillsDebts() {
-  const [activeTab, setActiveTab] = useState<'bills' | 'debts'>('bills');
+  const [activeTab, setActiveTab] = useState<'bills' | 'loans'>('bills');
   const currentHouseholdId = useAppStore((state) => state.currentHouseholdId);
   const [selectedDebtId, setSelectedDebtId] = useState<string | null>(null);
   const [selectedBillId, setSelectedBillId] = useState<string | null>(null);
+
+  // Confirm modal state
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    variant: 'danger' | 'success' | 'info';
+    confirmLabel: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    variant: 'info',
+    confirmLabel: 'Confirm',
+    onConfirm: () => {},
+  });
+
+  const showConfirm = (opts: Omit<typeof confirmModal, 'isOpen'>) => {
+    setConfirmModal({ isOpen: true, ...opts });
+  };
+
+  const hideConfirm = () => {
+    setConfirmModal(c => ({ ...c, isOpen: false }));
+  };
 
   const bills = useLiveQuery(() => db.bills.toArray());
   const debts = useLiveQuery(() => db.debts.toArray());
@@ -21,84 +47,101 @@ export default function BillsDebts() {
     if (!bill) return;
 
     const account = await db.accounts.get(bill.accountId);
-    if (!account) {
-      alert('Associated payment account not found!');
-      return;
-    }
+    if (!account) return;
 
     if (account.balance < bill.amount) {
-      alert(`Insufficient funds in ${account.name} (Balance: ₱${account.balance.toLocaleString()}) to pay ₱${bill.amount.toLocaleString()}!`);
+      showConfirm({
+        title: 'Insufficient Funds',
+        message: `${account.name} only has ₱${account.balance.toLocaleString()}. You need ₱${bill.amount.toLocaleString()} to pay this bill.`,
+        variant: 'danger',
+        confirmLabel: 'Got it',
+        onConfirm: hideConfirm,
+      });
       return;
     }
 
-    const confirmPay = window.confirm(`Confirm payment of ₱${bill.amount.toLocaleString()} to ${bill.name} using ${account.name}?`);
-    if (!confirmPay) return;
-
-    await db.accounts.update(bill.accountId, { balance: account.balance - bill.amount });
-
-    await db.transactions.add({
-      id: `tx_${Date.now()}`,
-      accountId: bill.accountId,
-      categoryId: 'cat_bills',
-      amount: bill.amount,
-      type: 'expense',
-      note: `Paid ${bill.name} Bill`,
-      date: Date.now()
-    });
-
-    await db.bills.update(billId, {
-      status: 'paid',
-      lastPaidDate: Date.now(),
-      timesRecurred: ((bill as any).timesRecurred || 0) + 1
+    showConfirm({
+      title: `Pay ${bill.name}`,
+      message: `Confirm payment of ₱${bill.amount.toLocaleString()} using ${account.name}?`,
+      variant: 'info',
+      confirmLabel: 'Pay Now',
+      onConfirm: async () => {
+        hideConfirm();
+        await db.accounts.update(bill.accountId, { balance: account.balance - bill.amount });
+        await db.transactions.add({
+          id: `tx_${Date.now()}`,
+          accountId: bill.accountId,
+          categoryId: 'cat_bills',
+          amount: bill.amount,
+          type: 'expense',
+          note: `Paid ${bill.name} Bill`,
+          date: Date.now()
+        });
+        await db.bills.update(billId, {
+          status: 'paid',
+          lastPaidDate: Date.now(),
+          timesRecurred: ((bill as any).timesRecurred || 0) + 1
+        });
+      },
     });
   };
 
-  const handlePayDebt = async (debtId: string) => {
+  const handlePayLoan = async (debtId: string) => {
     const debt = await db.debts.get(debtId);
     if (!debt) return;
 
-    if (!accounts || accounts.length === 0) {
-      alert('No accounts available to pay from!');
-      return;
-    }
+    if (!accounts || accounts.length === 0) return;
 
     const paymentAmount = Math.min(debt.installmentAmount, debt.remainingBalance);
     const account = accounts.find(a => a.balance >= paymentAmount) || accounts[0];
 
     if (account.balance < paymentAmount) {
-      alert(`Insufficient funds in your accounts to make a ₱${paymentAmount.toLocaleString()} payment.`);
+      showConfirm({
+        title: 'Insufficient Funds',
+        message: `You don't have enough balance to make a ₱${paymentAmount.toLocaleString()} loan payment.`,
+        variant: 'danger',
+        confirmLabel: 'Got it',
+        onConfirm: hideConfirm,
+      });
       return;
     }
 
-    const confirmPay = window.confirm(`Pay ₱${paymentAmount.toLocaleString()} towards ${debt.name} using ${account.name}?`);
-    if (!confirmPay) return;
-
-    await db.accounts.update(account.id, { balance: account.balance - paymentAmount });
-
-    const newRemaining = Math.max(0, debt.remainingBalance - paymentAmount);
-    await db.debts.update(debtId, { remainingBalance: newRemaining });
-
-    await db.transactions.add({
-      id: `tx_${Date.now()}`,
-      accountId: account.id,
-      amount: paymentAmount,
-      type: 'expense',
-      note: `Debt Payment: ${debt.name}`,
-      date: Date.now()
+    showConfirm({
+      title: `Pay Loan`,
+      message: `Pay ₱${paymentAmount.toLocaleString()} towards ${debt.name} using ${account.name}?`,
+      variant: 'info',
+      confirmLabel: 'Pay Now',
+      onConfirm: async () => {
+        hideConfirm();
+        await db.accounts.update(account.id, { balance: account.balance - paymentAmount });
+        const newRemaining = Math.max(0, debt.remainingBalance - paymentAmount);
+        await db.debts.update(debtId, { remainingBalance: newRemaining });
+        await db.transactions.add({
+          id: `tx_${Date.now()}`,
+          accountId: account.id,
+          amount: paymentAmount,
+          type: 'expense',
+          note: `Loan Payment: ${debt.name}`,
+          date: Date.now()
+        });
+        if (newRemaining === 0) {
+          showConfirm({
+            title: '🎉 Loan Fully Paid!',
+            message: `Congratulations! You have fully paid off your loan to ${debt.lender}!`,
+            variant: 'success',
+            confirmLabel: 'Awesome!',
+            onConfirm: hideConfirm,
+          });
+        }
+      },
     });
-
-    if (newRemaining === 0) {
-      alert(`Congratulations! You have fully paid off your debt to ${debt.lender}!`);
-    } else {
-      alert(`Paid ₱${paymentAmount.toLocaleString()} to ${debt.lender}. Remaining balance is now ₱${newRemaining.toLocaleString()}.`);
-    }
   };
 
   return (
     <div className="p-4 space-y-6 pb-24 h-full overflow-y-auto no-scrollbar">
       <header className="pt-1">
         <p className="text-[11px] font-black text-zinc-600 uppercase tracking-[0.15em] mb-0.5">Obligations</p>
-        <h1 className="text-2xl font-black text-zinc-100 tracking-tight">Bills & Debts</h1>
+        <h1 className="text-2xl font-black text-zinc-100 tracking-tight">Bills & Loans</h1>
       </header>
 
       {/* Segmented Control */}
@@ -114,14 +157,14 @@ export default function BillsDebts() {
           Bills
         </button>
         <button
-          onClick={() => setActiveTab('debts')}
+          onClick={() => setActiveTab('loans')}
           className={`flex-1 py-2 text-sm font-bold rounded-xl capitalize transition-all duration-300 ${
-            activeTab === 'debts' 
+            activeTab === 'loans' 
               ? 'bg-zinc-800 shadow-md text-zinc-100 ring-1 ring-white/10' 
               : 'text-zinc-500 hover:text-zinc-300'
           }`}
         >
-          Debts
+          Loans
         </button>
       </div>
 
@@ -131,7 +174,6 @@ export default function BillsDebts() {
           const isPaid = bill.status === 'paid';
           const isMonthly = !bill.dueType || bill.dueType === 'monthly';
 
-          // Next due date label
           let dueLabel = '';
           if (isPaid) {
             dueLabel = 'Paid this cycle';
@@ -143,7 +185,6 @@ export default function BillsDebts() {
             }
             dueLabel = `Due ${formatDistanceToNow(due, { addSuffix: true })}`;
           } else {
-            // Specific dates — find next upcoming
             const now = Date.now();
             const upcoming = (bill.specificDates || []).filter(ts => ts >= now).sort((a, b) => a - b);
             if (upcoming.length > 0) {
@@ -153,7 +194,6 @@ export default function BillsDebts() {
             }
           }
 
-          // Recurrence badge
           const recurrenceLabel = isMonthly
             ? `↻ Monthly · ${(bill as any).timesRecurred || 0}× paid`
             : `${(bill.specificDates || []).length} dates · ${(bill as any).timesRecurred || 0}× paid`;
@@ -210,7 +250,7 @@ export default function BillsDebts() {
           </div>
         )}
 
-        {activeTab === 'debts' && debts?.map(debt => {
+        {activeTab === 'loans' && debts?.map(debt => {
           const progress = ((debt.originalAmount - debt.remainingBalance) / debt.originalAmount) * 100;
           return (
             <div 
@@ -221,7 +261,7 @@ export default function BillsDebts() {
               <div className="flex justify-between items-start">
                 <div className="flex-1 min-w-0 mr-2">
                   <p className="font-bold text-zinc-100 text-base truncate">{debt.name}</p>
-                  <p className="text-[11px] font-bold text-zinc-500 mt-0.5 truncate">OWED TO <span className="text-zinc-300">{debt.lender}</span></p>
+                  <p className="text-[11px] font-bold text-zinc-500 mt-0.5 truncate">LENDER <span className="text-zinc-300">{debt.lender}</span></p>
                 </div>
                 <div className="text-right shrink-0">
                   <p className="font-black text-lg text-zinc-100 tabular-nums">
@@ -232,7 +272,7 @@ export default function BillsDebts() {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        handlePayDebt(debt.id);
+                        handlePayLoan(debt.id);
                       }}
                       className="text-[10px] uppercase tracking-wider font-black text-indigo-400 bg-indigo-500/10 px-3 py-1.5 rounded-full mt-2 active:scale-95 transition-transform"
                     >
@@ -258,17 +298,17 @@ export default function BillsDebts() {
           );
         })}
 
-        {activeTab === 'debts' && debts?.length === 0 && (
+        {activeTab === 'loans' && debts?.length === 0 && (
           <div className="p-10 flex flex-col items-center justify-center text-zinc-500 bg-zinc-900/30 rounded-[2rem] ring-1 ring-white/5 border-dashed border-zinc-800">
             <div className="w-16 h-16 mb-4 rounded-full bg-zinc-800/50 flex items-center justify-center ring-1 ring-white/5">
               <i className="lucide lucide-credit-card text-2xl text-zinc-400"></i>
             </div>
-            <p className="font-bold tracking-wide">No debts added yet.</p>
+            <p className="font-bold tracking-wide">No loans added yet.</p>
           </div>
         )}
       </div>
 
-      {/* Debt Detail Sheet */}
+      {/* Loan Detail Sheet */}
       <DebtDetailsSheet 
         debtId={selectedDebtId} 
         isOpen={selectedDebtId !== null} 
@@ -280,6 +320,17 @@ export default function BillsDebts() {
         billId={selectedBillId}
         isOpen={selectedBillId !== null}
         onClose={() => setSelectedBillId(null)}
+      />
+
+      {/* Confirm Modal */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        variant={confirmModal.variant}
+        confirmLabel={confirmModal.confirmLabel}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={hideConfirm}
       />
     </div>
   );

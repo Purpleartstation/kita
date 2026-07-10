@@ -52,11 +52,11 @@ export default function DebtSheet({ isOpen, onClose }: DebtSheetProps) {
   };
 
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title="Add New Debt">
+    <BottomSheet isOpen={isOpen} onClose={onClose} title="Add New Loan">
       <div className="space-y-4 overflow-y-auto max-h-[70vh] pb-6 no-scrollbar">
         {/* Debt Name */}
         <div>
-          <label className="text-[11px] font-black text-zinc-500 uppercase tracking-widest mb-1.5 block">Debt Name</label>
+          <label className="text-[11px] font-black text-zinc-500 uppercase tracking-widest mb-1.5 block">Loan Name</label>
           <input 
             type="text" 
             value={name}
@@ -134,11 +134,11 @@ export default function DebtSheet({ isOpen, onClose }: DebtSheetProps) {
         {/* Due Day & Payoff Strategy */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-[11px] font-black text-zinc-500 uppercase tracking-widest mb-1.5 block">Due Day (1-31)</label>
+            <label className="text-[11px] font-black text-zinc-500 uppercase tracking-widest mb-1.5 block">Due Day (1–28)</label>
             <input 
               type="number" 
               min="1"
-              max="31"
+              max="28"
               value={dueDay}
               onChange={(e) => setDueDay(e.target.value)}
               className="w-full bg-zinc-900/50 border border-white/5 rounded-xl px-4 py-3 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-600 font-bold placeholder:text-zinc-600 placeholder:font-medium"
@@ -164,7 +164,7 @@ export default function DebtSheet({ isOpen, onClose }: DebtSheetProps) {
           disabled={!name || !lender || !originalAmount || !remainingBalance || !installmentAmount}
           className="w-full h-14 bg-zinc-100 text-zinc-950 rounded-2xl font-black tracking-wide text-lg disabled:opacity-30 disabled:active:scale-100 active:scale-[0.98] transition-all mt-4"
         >
-          Add Debt
+          Add Loan
         </button>
       </div>
     </BottomSheet>

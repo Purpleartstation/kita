@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import BottomSheet from './BottomSheet';
 import { formatDistanceToNow } from 'date-fns';
 import { Trash2, Landmark, Smartphone, Wallet, ArrowRightLeft } from 'lucide-react';
+import TransactionDetailsSheet from './TransactionDetailsSheet';
 
 interface AccountDetailsSheetProps {
   accountId: string | null;
@@ -11,6 +13,8 @@ interface AccountDetailsSheetProps {
 }
 
 export default function AccountDetailsSheet({ accountId, isOpen, onClose }: AccountDetailsSheetProps) {
+  const [selectedTxId, setSelectedTxId] = useState<string | null>(null);
+
   const account = useLiveQuery(
     () => (accountId ? db.accounts.get(accountId) : null),
     [accountId]
@@ -108,8 +112,14 @@ export default function AccountDetailsSheet({ accountId, isOpen, onClose }: Acco
                   ? (isTransferIn ? '↓ +' : '↑ -')
                   : (isIncome ? '+' : '-');
 
+                const cleanNote = tx.note?.replace(/\s*\((In|Out)\)$/i, '') || cat?.name || 'Transaction';
+
                 return (
-                  <div key={tx.id} className="p-3 flex items-center justify-between gap-3">
+                  <div 
+                    key={tx.id} 
+                    onClick={() => setSelectedTxId(tx.id)}
+                    className="p-3 flex items-center justify-between gap-3 hover:bg-zinc-800/40 active:scale-[0.99] transition-all duration-150 cursor-pointer"
+                  >
                     <div className="flex items-center gap-3 min-w-0">
                       <div
                         className="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center font-bold text-sm"
@@ -121,7 +131,7 @@ export default function AccountDetailsSheet({ accountId, isOpen, onClose }: Acco
                         {isTransfer ? <ArrowRightLeft size={16} /> : (cat?.name ? cat.name.charAt(0) : 'T')}
                       </div>
                       <div className="min-w-0">
-                        <p className="font-bold text-sm text-zinc-100 truncate">{tx.note || cat?.name || 'Transaction'}</p>
+                        <p className="font-bold text-sm text-zinc-100 truncate">{cleanNote}</p>
                         <p className="text-xs text-zinc-500 font-medium">
                           {formatDistanceToNow(tx.date, { addSuffix: true })}
                         </p>
@@ -141,6 +151,12 @@ export default function AccountDetailsSheet({ accountId, isOpen, onClose }: Acco
           </div>
         </div>
       </div>
+      
+      <TransactionDetailsSheet 
+        transactionId={selectedTxId}
+        isOpen={selectedTxId !== null}
+        onClose={() => setSelectedTxId(null)}
+      />
     </BottomSheet>
   );
 }

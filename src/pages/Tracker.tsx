@@ -2,6 +2,8 @@ import { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import { formatDistanceToNow, isAfter, isBefore, subDays, startOfMonth, startOfYear, format } from 'date-fns';
+import { ArrowRightLeft } from 'lucide-react';
+import TransactionDetailsSheet from '../components/TransactionDetailsSheet';
 
 type DateFilter = 'all' | '7d' | 'month' | 'year' | 'custom';
 type CustomMode = 'range' | 'days';
@@ -10,6 +12,7 @@ export default function Tracker() {
   const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense' | 'transfer'>('all');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<DateFilter>('all');
+  const [selectedTxId, setSelectedTxId] = useState<string | null>(null);
 
   // Custom date range
   const [customMode, setCustomMode] = useState<CustomMode>('range');
@@ -45,6 +48,7 @@ export default function Tracker() {
     }
 
     return allTransactions.filter(tx => {
+      if (tx.id.endsWith('_in')) return false; // Hide duplicate transfer side
       if (typeFilter !== 'all' && tx.type !== typeFilter) return false;
       if (selectedCategoryId !== 'all' && tx.categoryId !== selectedCategoryId) return false;
       const txDate = new Date(tx.date);
@@ -205,29 +209,49 @@ export default function Tracker() {
           const cat = getCategory(tx.categoryId);
           const acc = getAccount(tx.accountId);
           const isIncome = tx.type === 'income';
+          const isTransfer = tx.type === 'transfer';
+
+          // Clean note to strip " (In)" / " (Out)"
+          const cleanNote = tx.note?.replace(/\s*\((In|Out)\)$/i, '') || cat?.name || 'Transaction';
+
+          const amountColor = isTransfer
+            ? 'text-zinc-300'
+            : (isIncome ? 'text-emerald-400' : 'text-zinc-100');
+
+          const amountPrefix = isTransfer
+            ? '⇄ '
+            : (isIncome ? '+' : '−');
           
           return (
-            <div key={tx.id} className="p-4 bg-zinc-900/60 backdrop-blur-md rounded-2xl ring-1 ring-white/5 flex items-center gap-3 hover:bg-zinc-800/60 hover:ring-white/10 active:scale-[0.99] transition-all duration-200 cursor-pointer">
+            <div 
+              key={tx.id} 
+              onClick={() => setSelectedTxId(tx.id)}
+              className="p-4 bg-zinc-900/60 backdrop-blur-md rounded-2xl ring-1 ring-white/5 flex items-center gap-3 hover:bg-zinc-800/60 hover:ring-white/10 active:scale-[0.99] transition-all duration-200 cursor-pointer"
+            >
               {/* Icon */}
               <div 
                 className="w-11 h-11 shrink-0 rounded-xl flex items-center justify-center text-base font-black shadow-inner ring-1 ring-white/10"
                 style={{ 
-                  background: cat?.color ? `linear-gradient(135deg, ${cat.color}25, ${cat.color}45)` : 'linear-gradient(135deg, #27272a, #3f3f46)', 
-                  color: cat?.color || '#a1a1aa' 
+                  background: cat?.color 
+                    ? `linear-gradient(135deg, ${cat.color}25, ${cat.color}45)` 
+                    : isTransfer
+                    ? 'linear-gradient(135deg, #3730a320, #4338ca40)'
+                    : 'linear-gradient(135deg, #27272a, #3f3f46)', 
+                  color: cat?.color || (isTransfer ? '#818cf8' : '#a1a1aa') 
                 }}
               >
-                {cat?.name ? cat.name.charAt(0).toUpperCase() : 'T'}
+                {isTransfer ? <ArrowRightLeft size={16} /> : (cat?.name ? cat.name.charAt(0).toUpperCase() : 'T')}
               </div>
 
               {/* Middle: name + meta — takes remaining space, truncates */}
               <div className="flex-1 min-w-0">
-                <p className="font-bold text-zinc-100 text-sm leading-tight truncate">{tx.note || cat?.name || 'Transaction'}</p>
+                <p className="font-bold text-zinc-100 text-sm leading-tight truncate">{cleanNote}</p>
                 <div className="flex items-center gap-1.5 text-[11px] font-medium mt-1 overflow-hidden">
                   <span 
                     className="px-1.5 py-0.5 rounded-md shrink-0 max-w-[90px] truncate"
-                    style={{ backgroundColor: cat?.color ? `${cat.color}20` : '#27272a', color: cat?.color || '#71717a' }}
+                    style={{ backgroundColor: cat?.color ? `${cat.color}20` : '#27272a', color: cat?.color || (isTransfer ? '#818cf8' : '#71717a') }}
                   >
-                    {cat?.name || 'Uncategorized'}
+                    {cat?.name || (isTransfer ? 'Transfer' : 'Uncategorized')}
                   </span>
                   <span className="text-zinc-600">•</span>
                   <span className="text-zinc-500 truncate shrink">{acc?.name}</span>
@@ -237,8 +261,8 @@ export default function Tracker() {
               </div>
 
               {/* Amount — never wraps */}
-              <p className={`font-black text-base shrink-0 whitespace-nowrap tabular-nums ${isIncome ? 'text-emerald-400' : 'text-zinc-100'}`}>
-                <span className="text-xs font-bold opacity-70 mr-0.5">{isIncome ? '+' : '-'}₱</span>{tx.amount.toLocaleString()}
+              <p className={`font-black text-base shrink-0 whitespace-nowrap tabular-nums ${amountColor}`}>
+                <span className="text-xs font-bold opacity-70 mr-0.5">{amountPrefix}₱</span>{tx.amount.toLocaleString()}
               </p>
             </div>
           );
@@ -253,6 +277,12 @@ export default function Tracker() {
           </div>
         )}
       </div>
+
+      <TransactionDetailsSheet 
+        transactionId={selectedTxId}
+        isOpen={selectedTxId !== null}
+        onClose={() => setSelectedTxId(null)}
+      />
     </div>
   );
 }

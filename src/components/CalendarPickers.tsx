@@ -46,49 +46,55 @@ export function MonthlyDayPicker({ selectedDay, onChange }: MonthlyDayPickerProp
     }
   };
 
+  // Cap at 28 so the chosen day is valid every month (Feb-safe)
+  const safeDays = Math.min(daysInMonth, 28);
+
   return (
-    <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden">
+    <div className="bg-zinc-900/60 border border-white/5 rounded-2xl overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 bg-amber-500 text-white">
-        <button type="button" onClick={prevMonth} className="p-1.5 rounded-full hover:bg-amber-600/30 text-white transition-colors">
+      <div className="flex items-center justify-between px-4 py-3 bg-zinc-800 border-b border-white/5">
+        <button type="button" onClick={prevMonth} className="p-1.5 rounded-full hover:bg-white/10 text-zinc-400 transition-colors">
           <ChevronLeft size={18} />
         </button>
-        <p className="font-bold text-sm">{MONTHS[viewMonth]} {viewYear}</p>
-        <button type="button" onClick={nextMonth} className="p-1.5 rounded-full hover:bg-amber-600/30 text-white transition-colors">
+        <p className="font-bold text-sm text-zinc-200">{MONTHS[viewMonth]} {viewYear}</p>
+        <button type="button" onClick={nextMonth} className="p-1.5 rounded-full hover:bg-white/10 text-zinc-400 transition-colors">
           <ChevronRight size={18} />
         </button>
       </div>
 
-      <p className="text-[10px] text-center text-slate-400 pt-2 font-semibold">Pick a day to recur monthly</p>
+      <p className="text-[10px] text-center text-zinc-500 py-2 font-bold uppercase tracking-widest">Select recurring due day</p>
 
       {/* Weekdays */}
       <div className="grid grid-cols-7 px-3 pt-1 pb-1">
         {WEEKDAYS.map(d => (
-          <div key={d} className="text-center text-[10px] font-bold text-slate-400 py-1">{d}</div>
+          <div key={d} className="text-center text-[10px] font-bold text-zinc-600 py-1">{d}</div>
         ))}
       </div>
 
-      {/* Days */}
+      {/* Days — only 1–28 to be safe for all months */}
       <div className="grid grid-cols-7 px-3 pb-3 gap-y-1">
         {Array.from({ length: startDow }).map((_, i) => <div key={`e-${i}`} />)}
-        {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(day => {
+        {Array.from({ length: safeDays }, (_, i) => i + 1).map(day => {
           const isSelected = selectedDay === day;
           return (
             <button
               key={day}
               type="button"
               onClick={() => onChange(day)}
-              className={`h-9 w-full rounded-full flex items-center justify-center text-xs font-bold transition-all
-                ${isSelected
-                  ? 'bg-amber-500 text-white shadow-md scale-105 ring-2 ring-amber-300'
-                  : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800'
-                }`}
+              className={`h-9 w-full rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                isSelected
+                  ? 'bg-zinc-100 text-zinc-950 shadow-md scale-105 ring-2 ring-white/30'
+                  : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100'
+              }`}
             >
               {day}
             </button>
           );
         })}
       </div>
+      <p className="text-[10px] text-center text-zinc-600 pb-2 font-medium px-3">
+        Days 1–28 only — ensures the bill works every month, including February.
+      </p>
     </div>
   );
 }
@@ -142,29 +148,29 @@ export function SpecificDatePicker({ selectedDates, onToggle }: SpecificDatePick
   const key = (day: number) => `${viewYear}-${viewMonth}-${day}`;
 
   return (
-    <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden">
+    <div className="bg-zinc-900/60 border border-white/5 rounded-2xl overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 bg-indigo-500">
-        <button type="button" onClick={prevMonth} className="p-1.5 rounded-full hover:bg-indigo-600/30 text-white transition-colors">
+      <div className="flex items-center justify-between px-4 py-3 bg-zinc-800 border-b border-white/5">
+        <button type="button" onClick={prevMonth} className="p-1.5 rounded-full hover:bg-white/10 text-zinc-400 transition-colors">
           <ChevronLeft size={18} />
         </button>
         <div className="text-center">
-          <p className="text-white font-bold text-sm">{MONTHS[viewMonth]} {viewYear}</p>
-          <p className="text-indigo-100 text-xs mt-0.5">
+          <p className="text-zinc-200 font-bold text-sm">{MONTHS[viewMonth]} {viewYear}</p>
+          <p className="text-zinc-500 text-[10px] mt-0.5 font-bold uppercase tracking-wider">
             {selectedDates.length === 0 ? 'Tap dates to schedule' : `${selectedDates.length} date${selectedDates.length > 1 ? 's' : ''} scheduled`}
           </p>
         </div>
-        <button type="button" onClick={nextMonth} className="p-1.5 rounded-full hover:bg-indigo-600/30 text-white transition-colors">
+        <button type="button" onClick={nextMonth} className="p-1.5 rounded-full hover:bg-white/10 text-zinc-400 transition-colors">
           <ChevronRight size={18} />
         </button>
       </div>
 
-      <p className="text-[10px] text-center text-slate-400 pt-2 font-semibold">Tap to add · Tap again to remove · Navigate months for more</p>
+      <p className="text-[10px] text-center text-zinc-500 py-2 font-bold uppercase tracking-widest">Tap to add · Tap again to remove</p>
 
       {/* Weekdays */}
       <div className="grid grid-cols-7 px-3 pt-1 pb-1">
         {WEEKDAYS.map(d => (
-          <div key={d} className="text-center text-[10px] font-bold text-slate-400 py-1">{d}</div>
+          <div key={d} className="text-center text-[10px] font-bold text-zinc-600 py-1">{d}</div>
         ))}
       </div>
 
@@ -182,19 +188,19 @@ export function SpecificDatePicker({ selectedDates, onToggle }: SpecificDatePick
               type="button"
               onClick={() => !isPast && toggleDay(day)}
               disabled={isPast}
-              className={`h-9 w-full rounded-full flex items-center justify-center text-xs font-bold transition-all relative
-                ${isSelected
-                  ? 'bg-indigo-500 text-white shadow-md scale-105 ring-2 ring-indigo-300'
+              className={`h-9 w-full rounded-full flex items-center justify-center text-xs font-bold transition-all relative ${
+                isSelected
+                  ? 'bg-zinc-100 text-zinc-950 shadow-md scale-105 ring-2 ring-white/30'
                   : isToday
-                  ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 ring-1 ring-indigo-400'
+                  ? 'ring-1 ring-zinc-500 text-zinc-300'
                   : isPast
-                  ? 'text-slate-300 dark:text-slate-700 cursor-not-allowed'
-                  : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800'
-                }`}
+                  ? 'text-zinc-700 cursor-not-allowed'
+                  : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100'
+              }`}
             >
               {day}
               {isToday && !isSelected && (
-                <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-indigo-500 rounded-full" />
+                <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-zinc-400 rounded-full" />
               )}
             </button>
           );
