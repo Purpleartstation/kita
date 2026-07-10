@@ -11,7 +11,7 @@ seedMockData()
   .then(() => {
     ReactDOM.createRoot(document.getElementById('root')!).render(
       <React.StrictMode>
-        <BrowserRouter>
+        <BrowserRouter basename="/kita/">
           <App />
         </BrowserRouter>
       </React.StrictMode>,
