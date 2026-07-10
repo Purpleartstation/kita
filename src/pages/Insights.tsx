@@ -57,7 +57,8 @@ export default function Insights() {
                   ))}
                 </Pie>
                 <Tooltip 
-                  formatter={(value: number) => [`₱ ${value.toLocaleString()}`, 'Amount'] as [string, string]}
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  formatter={((value: number) => [`₱ ${value.toLocaleString()}`, 'Amount']) as any}
                   contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                 />
                 <Legend verticalAlign="bottom" height={36} iconType="circle" />
