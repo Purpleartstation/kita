@@ -1,12 +1,9 @@
 import { useState } from 'react';
+import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../db';
+import type { AccountType } from '../db';
 import { useAppStore } from '../store';
 import BottomSheet from './BottomSheet';
-
-interface AccountSheetProps {
-  isOpen: boolean;
-  onClose: () => void;
-}
 
 const PALETTE = [
   '#1e40af', // Blue 800
@@ -20,12 +17,17 @@ const PALETTE = [
   '#3730a3', // Indigo 800
 ];
 
+interface AccountSheetProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
 export default function AccountSheet({ isOpen, onClose }: AccountSheetProps) {
   const currentHouseholdId = useAppStore((state) => state.currentHouseholdId);
   const currentUserId = useAppStore((state) => state.currentUserId);
 
   const [name, setName] = useState('');
-  const [type, setType] = useState<'bank' | 'ewallet' | 'cash'>('bank');
+  const [type, setType] = useState<AccountType>('bank');
   const [institution, setInstitution] = useState('');
   const [balance, setBalance] = useState('');
   const [selectedColor, setSelectedColor] = useState(PALETTE[0]);
@@ -35,8 +37,9 @@ export default function AccountSheet({ isOpen, onClose }: AccountSheetProps) {
     const numBalance = parseFloat(balance);
     if (isNaN(numBalance)) return;
 
-    await db.accounts.add({
-      id: `acc_${Date.now()}`,
+    const accountId = `acc_${Date.now()}`;
+    await setDoc(doc(db, 'accounts', accountId), {
+      id: accountId,
       householdId: currentHouseholdId,
       ownerId: currentUserId, // Default to user-owned, could be shared if type is cash
       name,
